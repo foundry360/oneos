@@ -61,21 +61,16 @@ function requireRole(...allowedRoles) {
         return res.status(401).json({ error: 'Authentication required' });
       }
       
-      // Always try to get role from database (Supabase) first for authoritative source
+      // Get role from database (Supabase) - authoritative source
       let userRole = await getUserRole(req.user.id);
       
-      // Fallback to JWT claims if database lookup fails (e.g., during initial setup or if profile not yet created)
+      // Fallback to JWT claims if database lookup fails
       if (!userRole && req.user.user_metadata?.role) {
+        logger.info('Using role from user_metadata', { userId: req.user.id, role: req.user.user_metadata.role });
         userRole = req.user.user_metadata.role;
-      } else if (!userRole && req.user.role) { // Fallback for older JWT structures
+      } else if (!userRole && req.user.role) {
+        logger.info('Using role from user object', { userId: req.user.id, role: req.user.role });
         userRole = req.user.role;
-      }
-      
-      // In development, if Supabase is not configured, allow access with a warning
-      if (!userRole && process.env.NODE_ENV === 'development' && !supabaseAdmin) {
-        logger.warn('RBAC bypassed - Supabase not configured, allowing access in development', { userId: req.user.id });
-        req.userRole = 'admin'; // Grant admin access in dev mode
-        return next();
       }
       
       if (!userRole) {
@@ -110,6 +105,8 @@ function requireRole(...allowedRoles) {
  * Middleware to require admin role
  */
 function requireAdmin(req, res, next) {
+  console.log('=== requireAdmin middleware called ===');
+  console.log('User:', req.user);
   return requireRole('admin')(req, res, next);
 }
 

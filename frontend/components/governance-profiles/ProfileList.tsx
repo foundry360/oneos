@@ -27,7 +27,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useGovernanceProfiles, GovernanceProfile } from '@/hooks/useGovernanceProfiles';
 
 interface ProfileListProps {
-  onSelectProfile: (profile: GovernanceProfile) => void;
+  onSelectProfile?: (profile: GovernanceProfile) => void;
   selectedProfile?: GovernanceProfile | null;
 }
 
@@ -38,6 +38,14 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+
+  const handleProfileClick = (profile: GovernanceProfile) => {
+    // Only call the onSelectProfile callback to update the sidebar view
+    // Do NOT navigate to full-page view - that's only done via the scan-eye icon in ProfileView
+    if (onSelectProfile) {
+      onSelectProfile(profile);
+    }
+  };
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((profile) => {
@@ -64,7 +72,7 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
     let dotColor: string;
     let statusText: string;
     
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'active':
         dotColor = '#16A34A';
         statusText = 'Active';
@@ -73,9 +81,14 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
         dotColor = '#FFAA33';
         statusText = 'Draft';
         break;
-      case 'deprecated':
+      case 'archived':
         dotColor = '#6B7280';
-        statusText = 'Deprecated';
+        statusText = 'Archived';
+        break;
+      case 'deprecated':
+        // Handle legacy deprecated status - treat as archived
+        dotColor = '#6B7280';
+        statusText = 'Archived';
         break;
       default:
         dotColor = '#6B7280';
@@ -316,13 +329,13 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                   <Text>Active</Text>
                 </MenuItem>
                 <MenuItem
-                  onClick={() => setStatusFilter('deprecated')}
+                  onClick={() => setStatusFilter('archived')}
                   fontSize="xs"
-                  bg={statusFilter === 'deprecated' ? 'gray.50' : 'white'}
+                  bg={statusFilter === 'archived' ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
                 >
-                  <Text>Deprecated</Text>
+                  <Text>Archived</Text>
                 </MenuItem>
               </MenuList>
             </Menu>
@@ -334,10 +347,10 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
          <Table variant="simple" width="100%">
            <Thead>
              <Tr>
-               <Th px={8} py={4} minW="200px">Name</Th>
+               <Th px={8} py={4} minW="200px">Profile Name</Th>
                <Th px={8} py={4} whiteSpace="nowrap">Domain</Th>
-               <Th px={8} py={4} w="80px">Version</Th>
                <Th px={8} py={4} w="120px">Status</Th>
+               <Th px={8} py={4} w="80px">Version</Th>
              </Tr>
            </Thead>
            <Tbody>
@@ -351,7 +364,7 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                paginatedProfiles.map((profile) => (
                  <Tr 
                    key={profile.id} 
-                   onClick={() => onSelectProfile(profile)}
+                   onClick={() => handleProfileClick(profile)}
                    cursor="pointer"
                    _hover={{ bg: 'gray.100' }}
                    bg={
@@ -384,8 +397,8 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                        px={2}
                        py={0.5}
                        borderRadius="md"
-                       bg="gray.100"
-                       color="gray.800"
+                       bg="blue.50"
+                       color="blue.800"
                        fontSize="11px"
                        fontWeight="500"
                        textTransform="uppercase"
@@ -395,10 +408,10 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                      </Text>
                    </Td>
                    <Td px={8} py={4}>
-                     <Text fontSize="xs">{profile.version}</Text>
+                     {getStatusBadge(profile.status)}
                    </Td>
                    <Td px={8} py={4}>
-                     {getStatusBadge(profile.status)}
+                     <Text fontSize="xs">{profile.version}</Text>
                    </Td>
                  </Tr>
                ))

@@ -5,6 +5,9 @@ const { authenticate } = require('../middleware/auth');
 const { requireAdmin, requireAdminOrGovernance } = require('../middleware/rbac');
 const auditLog = require('../middleware/audit');
 const logger = require('../utils/logger');
+const fs = require('fs').promises;
+const path = require('path');
+const DEBUG_LOG_PATH = path.join(__dirname, '../../.cursor/debug.log');
 
 const router = express.Router();
 
@@ -29,7 +32,7 @@ router.get(
   auditLog,
   [
     query('domain').optional().isString(),
-    query('status').optional().isIn(['draft', 'active', 'deprecated']),
+    query('status').optional().isIn(['draft', 'active', 'archived']),
     query('name').optional().isString(),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 })
@@ -49,8 +52,56 @@ router.get(
       
       res.json({ profiles });
     } catch (error) {
-      logger.error('Failed to list profiles', { error: error.message });
-      res.status(500).json({ error: 'Failed to list profiles' });
+      logger.error('Failed to list profiles', { error: error.message, stack: error.stack });
+      
+      // Provide more helpful error messages
+      if (error.code === 'ECONNREFUSED' || error.message.includes('connect')) {
+        return res.status(503).json({ 
+          error: 'Database connection failed',
+          message: 'Please ensure PostgreSQL is running. Start with: docker-compose up -d postgres'
+        });
+      }
+      
+      res.status(500).json({ 
+        error: 'Failed to list profiles',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/governance-profiles/:id/create-version
+ * Create a new version of an active or archived profile
+ * Access: Admin or Governance
+ */
+router.post(
+  '/:id/create-version',
+  authenticate,
+  requireAdminOrGovernance,
+  auditLog,
+  [param('id').isUUID()],
+  validate,
+  async (req, res) => {
+    try {
+      const profile = await governanceProfileService.createNewVersion(
+        req.params.id,
+        req.user.id
+      );
+      
+      res.json({ profile });
+    } catch (error) {
+      logger.error('Failed to create new version', { error: error.message });
+      
+      if (error.message.includes('Cannot create new version from')) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: 'Failed to create new version' });
     }
   }
 );
@@ -157,8 +208,25 @@ router.post(
  */
 router.put(
   '/:id',
+  (req, res, next) => {
+    console.log('=== PUT /governance-profiles/:id - REQUEST START ===');
+    console.log('URL:', req.url);
+    console.log('Params:', req.params);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    next();
+  },
   authenticate,
+  (req, res, next) => {
+    console.log('=== AFTER AUTHENTICATE ===');
+    console.log('User:', req.user);
+    next();
+  },
   requireAdmin,
+  (req, res, next) => {
+    console.log('=== AFTER REQUIRE ADMIN ===');
+    next();
+  },
   auditLog,
   [
     param('id').isUUID(),
@@ -172,17 +240,38 @@ router.put(
     body('metadata').optional().isObject()
   ],
   validate,
+  (req, res, next) => {
+    console.log('=== AFTER VALIDATION ===');
+    console.log('Validated body:', JSON.stringify(req.body, null, 2));
+    next();
+  },
   async (req, res) => {
+    console.log('=== ROUTE HANDLER ENTERED ===');
+    console.log('Profile ID:', req.params.id);
+    console.log('User ID:', req.user?.id);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    // #region agent log
+    fs.appendFile(DEBUG_LOG_PATH,JSON.stringify({location:'governanceProfiles.js:232',message:'UPDATE route entry',data:{profileId:req.params.id,body:req.body,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n').catch((e)=>logger.error('Debug log write failed',{error:e.message}));
+    // #endregion
     try {
       const profile = await governanceProfileService.updateProfile(
         req.params.id,
         req.body,
         req.user.id
       );
-      
+      // #region agent log
+      fs.appendFile(DEBUG_LOG_PATH,JSON.stringify({location:'governanceProfiles.js:219',message:'UPDATE route success',data:{profileId:profile?.id,status:profile?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n').catch((e)=>logger.error('Debug log write failed',{error:e.message}));
+      // #endregion
       res.json({ profile });
     } catch (error) {
-      logger.error('Failed to update profile', { error: error.message });
+      // #region agent log
+      fs.appendFile(DEBUG_LOG_PATH,JSON.stringify({location:'governanceProfiles.js:220',message:'UPDATE route error caught',data:{errorMessage:error.message,errorCode:error.code,errorStack:error.stack?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n').catch((e)=>logger.error('Debug log write failed',{error:e.message}));
+      // #endregion
+      logger.error('Failed to update profile', { 
+        error: error.message,
+        stack: error.stack,
+        body: req.body
+      });
       
       if (error.message.includes('Only draft profiles')) {
         return res.status(400).json({ error: error.message });
@@ -192,7 +281,45 @@ router.put(
         return res.status(404).json({ error: error.message });
       }
       
-      res.status(500).json({ error: 'Failed to update profile' });
+      // Log full error details FIRST (before response)
+      console.error('=== UPDATE PROFILE ERROR ===');
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error detail:', error.detail);
+      console.error('Error hint:', error.hint);
+      console.error('Error stack:', error.stack);
+      console.error('Request body:', JSON.stringify(req.body, null, 2));
+      console.error('Request params:', req.params);
+      console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error('===========================');
+      
+      logger.error('Update profile error - FULL DETAILS', {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        hint: error.hint,
+        stack: error.stack,
+        body: req.body,
+        params: req.params,
+        errorKeys: Object.keys(error)
+      });
+      
+      // Always include error details for debugging
+      const errorResponse = { 
+        error: 'Failed to update profile',
+        message: String(error.message || 'Unknown error'),
+        code: String(error.code || 'UNKNOWN_ERROR'),
+        detail: error.detail ? String(error.detail) : null,
+        hint: error.hint ? String(error.hint) : null
+      };
+      
+      // Include stack trace in non-production
+      if (process.env.NODE_ENV !== 'production') {
+        errorResponse.stack = String(error.stack || '');
+        errorResponse.body = req.body;
+      }
+      
+      res.status(500).json(errorResponse);
     }
   }
 );
@@ -238,12 +365,12 @@ router.post(
 );
 
 /**
- * POST /api/governance-profiles/:id/deprecate
- * Deprecate an active profile
+ * POST /api/governance-profiles/:id/archive
+ * Archive an active profile
  * Access: Admin only
  */
 router.post(
-  '/:id/deprecate',
+  '/:id/archive',
   authenticate,
   requireAdmin,
   auditLog,
@@ -254,7 +381,7 @@ router.post(
   validate,
   async (req, res) => {
     try {
-      const profile = await governanceProfileService.deprecateProfile(
+      const profile = await governanceProfileService.archiveProfile(
         req.params.id,
         req.user.id,
         req.body.justification || ''
@@ -262,7 +389,7 @@ router.post(
       
       res.json({ profile });
     } catch (error) {
-      logger.error('Failed to deprecate profile', { error: error.message });
+      logger.error('Failed to archive profile', { error: error.message });
       
       if (error.message.includes('Only active profiles')) {
         return res.status(400).json({ error: error.message });
@@ -272,7 +399,7 @@ router.post(
         return res.status(404).json({ error: error.message });
       }
       
-      res.status(500).json({ error: 'Failed to deprecate profile' });
+      res.status(500).json({ error: 'Failed to archive profile' });
     }
   }
 );
@@ -347,6 +474,60 @@ router.get(
     } catch (error) {
       logger.error('Failed to get eligible reviewers', { error: error.message });
       res.status(500).json({ error: 'Failed to get eligible reviewers' });
+    }
+  }
+);
+
+/**
+ * POST /api/governance-profiles/:id/export
+ * Export a governance profile (Admin only)
+ * Access: Admin only
+ */
+router.post(
+  '/:id/export',
+  authenticate,
+  requireAdmin,
+  auditLog,
+  [
+    param('id').isUUID(),
+    body('format').isIn(['pdf', 'json']).withMessage('Format must be pdf or json'),
+    body('scope').isIn(['this_version']).withMessage('Scope must be this_version'),
+    body('justification').isString().notEmpty().withMessage('Justification is required'),
+    body('redactionLevel').optional().isIn(['none', 'partial', 'full']),
+    body('watermarkLabel').optional().isString(),
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const result = await governanceProfileService.exportProfile(
+        req.params.id,
+        req.user.id,
+        {
+          format: req.body.format,
+          scope: req.body.scope,
+          justification: req.body.justification,
+          redactionLevel: req.body.redactionLevel,
+          watermarkLabel: req.body.watermarkLabel,
+        }
+      );
+      
+      res.json(result);
+    } catch (error) {
+      logger.error('Failed to export profile', { error: error.message });
+      
+      if (error.message.includes('Only active or archived')) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      
+      if (error.message.includes('Justification is required')) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: 'Failed to export profile' });
     }
   }
 );

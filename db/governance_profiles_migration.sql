@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS governance_profiles (
     domain VARCHAR(100) NOT NULL, -- e.g., 'workers-comp', 'employment', 'ai-model-deployment'
     description TEXT,
     version INTEGER NOT NULL DEFAULT 1,
-    status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'deprecated')),
+    status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'archived')),
     allowed_actions TEXT[] NOT NULL DEFAULT '{}', -- ['approve', 'reject', 'escalate', 'override']
     risk_thresholds JSONB NOT NULL DEFAULT '{}', -- {low: {...}, medium: {...}, high: {...}}
     human_review_requirement VARCHAR(20) NOT NULL DEFAULT 'conditional' CHECK (human_review_requirement IN ('required', 'conditional', 'optional')),
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS governance_profiles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     activated_at TIMESTAMP,
     activated_by UUID,
-    deprecated_at TIMESTAMP,
-    deprecated_by UUID,
+    archived_at TIMESTAMP,
+    archived_by UUID,
     version_hash VARCHAR(64), -- SHA-256 hash of profile content for ledger
     UNIQUE(name, version) -- One version per profile name
 );
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS governance_profile_data_controls (
 CREATE TABLE IF NOT EXISTS governance_profile_audit (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_id UUID NOT NULL REFERENCES governance_profiles(id) ON DELETE CASCADE,
-    action VARCHAR(50) NOT NULL, -- 'created', 'updated', 'activated', 'deprecated', 'deleted'
+    action VARCHAR(50) NOT NULL, -- 'created', 'updated', 'activated', 'archived', 'deleted'
     performed_by UUID NOT NULL, -- References Supabase auth.users(id)
     performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     changes JSONB DEFAULT '{}', -- Before/after state for updates
@@ -159,12 +159,12 @@ CREATE TRIGGER update_governance_profile_data_controls_updated_at BEFORE UPDATE 
 CREATE OR REPLACE FUNCTION ensure_single_active_profile()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- If activating a profile, deprecate other active versions with the same name
+    -- If activating a profile, archive other active versions with the same name
     IF NEW.status = 'active' AND (OLD.status IS NULL OR OLD.status != 'active') THEN
         UPDATE governance_profiles
-        SET status = 'deprecated',
-            deprecated_at = CURRENT_TIMESTAMP,
-            deprecated_by = NEW.activated_by
+        SET status = 'archived',
+            archived_at = CURRENT_TIMESTAMP,
+            archived_by = NEW.activated_by
         WHERE name = NEW.name
           AND id != NEW.id
           AND status = 'active';
@@ -186,7 +186,7 @@ COMMENT ON TABLE governance_profiles IS 'Main table for governance profiles defi
 COMMENT ON COLUMN governance_profiles.name IS 'Unique profile name (e.g., workers-comp-ime-review)';
 COMMENT ON COLUMN governance_profiles.domain IS 'Domain/category of the profile (e.g., workers-comp, employment, ai-model-deployment)';
 COMMENT ON COLUMN governance_profiles.version IS 'Version number for this profile (increments on each activation)';
-COMMENT ON COLUMN governance_profiles.status IS 'Profile status: draft (editable), active (immutable, in use), deprecated (replaced)';
+COMMENT ON COLUMN governance_profiles.status IS 'Profile status: draft (editable), active (immutable, in use), archived (replaced)';
 COMMENT ON COLUMN governance_profiles.allowed_actions IS 'Array of allowed actions: approve, reject, escalate, override';
 COMMENT ON COLUMN governance_profiles.risk_thresholds IS 'JSONB object defining risk level configurations';
 COMMENT ON COLUMN governance_profiles.human_review_requirement IS 'Human review requirement level';

@@ -31,15 +31,42 @@ a {
 *:focus-within {
   outline: none !important;
   box-shadow: none !important;
-  border: none !important;
   ring: none !important;
   ring-offset: none !important;
 }
 
-button:focus,
-button:focus-visible,
-button:active,
-button:focus-visible:active {
+/* Keep borders on input and textarea elements */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  border: 1px solid #9CA3AF !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep borders on button elements used as dropdowns */
+button[data-dropdown-button]:focus,
+button[data-dropdown-button]:focus-visible,
+button[data-dropdown-button]:active {
+  border: 1px solid #9CA3AF !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep borders on Allowed Actions buttons at all times */
+button[type="button"]:has-text("Approve"),
+button[type="button"]:has-text("Reject"),
+button[type="button"]:has-text("Escalate"),
+button[type="button"]:has-text("Override") {
+  border: 1px solid !important;
+}
+
+/* General button focus styles - but allow borders on dropdown buttons and action buttons */
+button:focus:not([data-dropdown-button]):not([data-action-button]),
+button:focus-visible:not([data-dropdown-button]):not([data-action-button]),
+button:active:not([data-dropdown-button]):not([data-action-button]),
+button:focus-visible:active:not([data-dropdown-button]):not([data-action-button]) {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
@@ -84,5 +111,25 @@ button:focus-visible:active {
 * {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db #f5f5f5;
+}
+
+/* Modal close button - always show light blue background */
+button[aria-label="Close"],
+.chakra-modal__close-btn,
+button[class*="chakra-modal__close-btn"] {
+  background-color: #e6f2ff !important;
+  border-radius: 6px !important;
+}
+
+button[aria-label="Close"]:hover,
+.chakra-modal__close-btn:hover,
+button[class*="chakra-modal__close-btn"]:hover {
+  background-color: #cce5ff !important;
+}
+
+button[aria-label="Close"]:active,
+.chakra-modal__close-btn:active,
+button[class*="chakra-modal__close-btn"]:active {
+  background-color: #b3d8ff !important;
 }
 
