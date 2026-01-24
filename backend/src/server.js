@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -15,10 +16,19 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+// CORS configuration - more permissive in development
+const corsOptions = process.env.NODE_ENV === 'production'
+  ? {
+      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      credentials: true
+    }
+  : {
+      origin: true, // Allow all origins in development
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    };
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -42,9 +52,17 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Error handling
+// Error handling - ensure CORS headers are included in error responses
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', { error: err.message, stack: err.stack });
+  
+  // Ensure CORS headers are set even on errors
+  const origin = req.headers.origin;
+  if (origin && (process.env.NODE_ENV !== 'production' || origin === process.env.FRONTEND_URL)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
   });

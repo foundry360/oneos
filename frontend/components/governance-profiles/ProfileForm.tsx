@@ -17,18 +17,29 @@ import {
   useToast,
   Divider,
   Code,
+  Grid,
+  GridItem,
 } from '@chakra-ui/react';
-import { Plus, X, Save } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Plus, X, Save, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { GovernanceProfile } from '@/hooks/useGovernanceProfiles';
 
 interface ProfileFormProps {
   profile?: GovernanceProfile | null;
   onSave: (profileData: Partial<GovernanceProfile>) => Promise<void>;
   onCancel: () => void;
+  isModal?: boolean;
+  showButtons?: boolean;
+  onSaveClick?: () => void;
 }
 
-export default function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
+const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
+  ({ profile, onSave, onCancel, isModal = false, showButtons = true }, ref) => {
+  const [isDomainDropdownOpen, setIsDomainDropdownOpen] = useState(false);
+  const domainDropdownRef = useRef<HTMLDivElement>(null);
+  const [domainInputValue, setDomainInputValue] = useState('');
+  const [isHumanReviewDropdownOpen, setIsHumanReviewDropdownOpen] = useState(false);
+  const humanReviewDropdownRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
@@ -46,6 +57,10 @@ export default function ProfileForm({ profile, onSave, onCancel }: ProfileFormPr
   const [assignmentRulesJson, setAssignmentRulesJson] = useState('');
   const toast = useToast();
 
+  useImperativeHandle(ref, () => ({
+    save: handleSave,
+  }));
+
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -62,8 +77,66 @@ export default function ProfileForm({ profile, onSave, onCancel }: ProfileFormPr
       });
       setRiskThresholdsJson(JSON.stringify(profile.risk_thresholds || {}, null, 2));
       setAssignmentRulesJson(JSON.stringify(profile.assignment_rules || {}, null, 2));
+      setDomainInputValue(profile.domain ? getDomainLabel(profile.domain) : '');
+    } else {
+      // Reset when creating new profile
+      setDomainInputValue('');
     }
   }, [profile]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (domainDropdownRef.current && !domainDropdownRef.current.contains(event.target as Node)) {
+        setIsDomainDropdownOpen(false);
+      }
+      if (humanReviewDropdownRef.current && !humanReviewDropdownRef.current.contains(event.target as Node)) {
+        setIsHumanReviewDropdownOpen(false);
+      }
+    };
+
+    if (isDomainDropdownOpen || isHumanReviewDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isDomainDropdownOpen, isHumanReviewDropdownOpen]);
+
+  const domainOptions = [
+    { value: 'workers-comp', label: 'Workers Comp' },
+    { value: 'employment', label: 'Employment' },
+    { value: 'ai-model-deployment', label: 'AI Model Deployment' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const getFilteredDomains = (input: string) => {
+    if (!input.trim()) {
+      return domainOptions;
+    }
+    const lowerInput = input.toLowerCase();
+    return domainOptions.filter(option => 
+      option.label.toLowerCase().includes(lowerInput) ||
+      option.value.toLowerCase().includes(lowerInput)
+    );
+  };
+
+  const getDomainLabel = (value: string) => {
+    if (!value) return 'Select or type domain';
+    const option = domainOptions.find(opt => opt.value === value);
+    return option ? option.label : value; // Return the value itself if it's custom
+  };
+
+  const humanReviewOptions = [
+    { value: 'required', label: 'Required' },
+    { value: 'conditional', label: 'Conditional' },
+    { value: 'optional', label: 'Optional' },
+  ];
+
+  const getHumanReviewLabel = (value: string) => {
+    const option = humanReviewOptions.find(opt => opt.value === value);
+    return option ? option.label : value || 'Select requirement';
+  };
 
   const handleSave = async () => {
     try {
@@ -197,219 +270,940 @@ export default function ProfileForm({ profile, onSave, onCancel }: ProfileFormPr
     }));
   };
 
+  if (isModal) {
+    return (
+      <Box p={5}>
+        <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+            <GridItem>
+              <FormControl isRequired>
+                <FormLabel>Name</FormLabel>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., workers-comp-ime-review"
+                  isDisabled={!!profile}
+                  variant="outline"
+                  fontSize="sm"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _hover={{ borderColor: 'gray.400' }}
+                  css={{
+                    '&:focus': {
+                      borderColor: '#9CA3AF !important',
+                      borderWidth: '1px !important',
+                      boxShadow: 'none !important',
+                      outline: 'none !important',
+                    },
+                  }}
+                />
+              </FormControl>
+            </GridItem>
+
+            <GridItem>
+              <FormControl isRequired>
+                <FormLabel>Domain</FormLabel>
+                <Box position="relative" ref={domainDropdownRef}>
+                  <Input
+                    value={profile ? getDomainLabel(formData.domain) : (domainInputValue !== undefined ? domainInputValue : '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDomainInputValue(value);
+                      setFormData({ ...formData, domain: value });
+                      setIsDomainDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      if (!profile) {
+                        setIsDomainDropdownOpen(true);
+                        if (domainInputValue === undefined || domainInputValue === '') {
+                          setDomainInputValue('');
+                        }
+                      }
+                    }}
+                    placeholder="Select or type domain"
+                    isDisabled={!!profile}
+                    variant="outline"
+                    fontSize="sm"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                    _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                    _hover={{ borderColor: 'gray.400' }}
+                    css={{
+                      '&:focus': {
+                        borderColor: '#9CA3AF !important',
+                        borderWidth: '1px !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                    }}
+                  />
+                  {isDomainDropdownOpen && !profile && getFilteredDomains(domainInputValue).length > 0 && (
+                    <Box
+                      position="absolute"
+                      top="100%"
+                      left={0}
+                      right={0}
+                      mt={1}
+                      bg="white"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      borderRadius="md"
+                      boxShadow="md"
+                      zIndex={10}
+                      maxH="200px"
+                      overflowY="auto"
+                    >
+                      <VStack align="stretch" spacing={0}>
+                        {getFilteredDomains(domainInputValue).map((option) => (
+                          <Box
+                            key={option.value}
+                            as="button"
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, domain: option.value });
+                              setDomainInputValue(option.label);
+                              setIsDomainDropdownOpen(false);
+                            }}
+                            px={3}
+                            py={2}
+                            textAlign="left"
+                            fontSize="sm"
+                            color="gray.700"
+                            bg={formData.domain === option.value ? 'gray.50' : 'white'}
+                            _hover={{ bg: 'gray.50' }}
+                            borderBottom={option.value !== getFilteredDomains(domainInputValue)[getFilteredDomains(domainInputValue).length - 1].value ? '1px solid' : 'none'}
+                            borderColor="gray.200"
+                            cursor="pointer"
+                          >
+                            {option.label}
+                          </Box>
+                        ))}
+                      </VStack>
+                    </Box>
+                  )}
+                </Box>
+              </FormControl>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <FormControl>
+                <FormLabel>Policy Statement</FormLabel>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe the governance profile..."
+                  variant="outline"
+                  fontSize="sm"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _hover={{ borderColor: 'gray.400' }}
+                  css={{
+                    '&:focus': {
+                      borderColor: '#9CA3AF !important',
+                      borderWidth: '1px !important',
+                      boxShadow: 'none !important',
+                      outline: 'none !important',
+                    },
+                  }}
+                />
+              </FormControl>
+            </GridItem>
+
+            <GridItem>
+              <FormControl>
+                <FormLabel>Human Review Requirement</FormLabel>
+                <Box position="relative" ref={humanReviewDropdownRef}>
+                  <Box
+                    as="button"
+                    type="button"
+                    data-dropdown-button
+                    onClick={() => setIsHumanReviewDropdownOpen(!isHumanReviewDropdownOpen)}
+                    w="100%"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    bg="white"
+                    color="gray.700"
+                    fontSize="sm"
+                    textAlign="left"
+                    cursor="pointer"
+                    _hover={{ borderColor: 'gray.400' }}
+                    _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none' }}
+                    _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none' }}
+                    transition="all 0.2s"
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    css={{
+                      '&:focus': {
+                        borderColor: '#9CA3AF !important',
+                        borderWidth: '1px !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                    }}
+                >
+                  <Text textTransform="capitalize">{getHumanReviewLabel(formData.human_review_requirement)}</Text>
+                    <ChevronDown size={16} style={{ transform: isHumanReviewDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                  </Box>
+                  {isHumanReviewDropdownOpen && (
+                    <Box
+                      position="absolute"
+                      top="100%"
+                      left={0}
+                      right={0}
+                      mt={1}
+                      bg="white"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      borderRadius="md"
+                      boxShadow="md"
+                      zIndex={10}
+                    >
+                      <VStack align="stretch" spacing={0}>
+                        {humanReviewOptions.map((option) => (
+                          <Box
+                            key={option.value}
+                            as="button"
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, human_review_requirement: option.value as any });
+                              setIsHumanReviewDropdownOpen(false);
+                            }}
+                            px={3}
+                            py={2}
+                            textAlign="left"
+                            fontSize="sm"
+                            color="gray.700"
+                            _hover={{ bg: 'gray.50' }}
+                            bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
+                          >
+                            {option.label}
+                          </Box>
+                        ))}
+                      </VStack>
+                    </Box>
+                  )}
+                </Box>
+              </FormControl>
+            </GridItem>
+
+            <GridItem>
+              <FormControl>
+                <FormLabel>Allowed Actions</FormLabel>
+                <HStack spacing={2} flexWrap="wrap">
+                  {['approve', 'reject', 'escalate', 'override'].map((action) => {
+                    const isSelected = formData.allowed_actions.includes(action);
+                    return (
+                      <Box
+                        key={action}
+                        as="button"
+                        type="button"
+                        data-action-button
+                        onClick={() => toggleAction(action)}
+                        px={3}
+                        py={1.5}
+                        borderRadius="md"
+                        bg={isSelected ? 'blue.50' : 'white'}
+                        color={isSelected ? 'blue.700' : 'gray.700'}
+                        fontSize="sm"
+                        fontWeight={isSelected ? '500' : '400'}
+                        cursor="pointer"
+                        sx={{
+                          border: '1px solid !important',
+                          borderColor: isSelected ? '#3182CE !important' : '#CBD5E0 !important',
+                          '&:hover': {
+                            borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                            border: '1px solid !important',
+                            bg: isSelected ? '#BEE3F8' : '#F7FAFC',
+                          },
+                          '&:active': {
+                            border: '1px solid !important',
+                            borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                            bg: isSelected ? '#90CDF4' : '#EDF2F7',
+                          },
+                          '&:focus': {
+                            border: '1px solid !important',
+                            borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                            outline: 'none',
+                            boxShadow: 'none',
+                          },
+                          '&:focus-visible': {
+                            border: '1px solid !important',
+                            borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                            outline: 'none',
+                            boxShadow: 'none',
+                          },
+                        }}
+                      >
+                        {action.charAt(0).toUpperCase() + action.slice(1)}
+                      </Box>
+                    );
+                  })}
+                </HStack>
+              </FormControl>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <FormControl>
+                <FormLabel>Risk Thresholds (JSON)</FormLabel>
+                <Textarea
+                  value={riskThresholdsJson}
+                  onChange={(e) => setRiskThresholdsJson(e.target.value)}
+                  placeholder='{"low": {...}, "medium": {...}, "high": {...}}'
+                  fontFamily="mono"
+                  fontSize="sm"
+                  minH="150px"
+                  variant="outline"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                  _hover={{ borderColor: 'gray.400' }}
+                />
+              </FormControl>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <FormControl>
+                <FormLabel>Assignment Rules (JSON)</FormLabel>
+                <Textarea
+                  value={assignmentRulesJson}
+                  onChange={(e) => setAssignmentRulesJson(e.target.value)}
+                  placeholder='{"roles": [...], "sla_hours": 48}'
+                  fontFamily="mono"
+                  fontSize="sm"
+                  minH="100px"
+                  variant="outline"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                  _hover={{ borderColor: 'gray.400' }}
+                />
+              </FormControl>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <Divider />
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <HStack justify="space-between">
+                <Text fontWeight="bold">Rules</Text>
+                <Button leftIcon={<Plus size={16} />} size="sm" onClick={addRule}>
+                  Add Rule
+                </Button>
+              </HStack>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <VStack align="stretch" spacing={2}>
+                {formData.rules.map((rule, index) => (
+                  <Box key={index} p={3} bg="gray.50" borderRadius="md">
+                    <HStack mb={2}>
+                      <Input
+                        placeholder="Rule type"
+                        value={rule.rule_type}
+                        onChange={(e) => updateRule(index, 'rule_type', e.target.value)}
+                        size="sm"
+                        fontSize="sm"
+                        flex={1}
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                      <Input
+                        placeholder="Rule key"
+                        value={rule.rule_key}
+                        onChange={(e) => updateRule(index, 'rule_key', e.target.value)}
+                        size="sm"
+                        fontSize="sm"
+                        flex={1}
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Priority"
+                        value={rule.priority}
+                        onChange={(e) => updateRule(index, 'priority', parseInt(e.target.value) || 0)}
+                        size="sm"
+                        fontSize="sm"
+                        width="100px"
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                      <IconButton
+                        aria-label="Remove rule"
+                        icon={<X size={16} />}
+                        size="sm"
+                        onClick={() => removeRule(index)}
+                      />
+                    </HStack>
+                    <Textarea
+                      placeholder='Rule value (JSON)'
+                      value={JSON.stringify(rule.rule_value, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          updateRule(index, 'rule_value', JSON.parse(e.target.value));
+                        } catch {}
+                      }}
+                      size="sm"
+                      fontSize="sm"
+                      fontFamily="mono"
+                      minH="60px"
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                  </Box>
+                ))}
+              </VStack>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <Divider />
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <HStack justify="space-between">
+                <Text fontWeight="bold">Data Controls</Text>
+                <Button leftIcon={<Plus size={16} />} size="sm" onClick={addDataControl}>
+                  Add Control
+                </Button>
+              </HStack>
+            </GridItem>
+
+            <GridItem colSpan={2}>
+              <VStack align="stretch" spacing={2}>
+                {formData.data_controls.map((control, index) => (
+                  <Box key={index} p={3} bg="gray.50" borderRadius="md">
+                    <HStack mb={2}>
+                      <Input
+                        placeholder="Control type"
+                        value={control.control_type}
+                        onChange={(e) => updateDataControl(index, 'control_type', e.target.value)}
+                        size="sm"
+                        fontSize="sm"
+                        flex={1}
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                      <Checkbox
+                        isChecked={control.is_required}
+                        onChange={(e) => updateDataControl(index, 'is_required', e.target.checked)}
+                      >
+                        Required
+                      </Checkbox>
+                      <IconButton
+                        aria-label="Remove control"
+                        icon={<X size={16} />}
+                        size="sm"
+                        onClick={() => removeDataControl(index)}
+                      />
+                    </HStack>
+                    <Textarea
+                      placeholder='Control config (JSON)'
+                      value={JSON.stringify(control.control_config, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          updateDataControl(index, 'control_config', JSON.parse(e.target.value));
+                        } catch {}
+                      }}
+                      size="sm"
+                      fontSize="sm"
+                      fontFamily="mono"
+                      minH="60px"
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                  </Box>
+                ))}
+              </VStack>
+            </GridItem>
+          </Grid>
+        </Box>
+      );
+    }
+
   return (
     <Box p={6}>
       <VStack spacing={4} align="stretch">
-        <HStack justify="flex-end" mb={2}>
-          <Button variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            leftIcon={<Save size={16} />}
-            colorScheme="blue"
-            onClick={handleSave}
-            isLoading={saving}
-          >
-            Save
-          </Button>
-        </HStack>
-
-        <FormControl isRequired>
-          <FormLabel>Name</FormLabel>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g., workers-comp-ime-review"
-            isDisabled={!!profile}
-          />
-        </FormControl>
-
-        <FormControl isRequired>
-          <FormLabel>Domain</FormLabel>
-          <Select
-            value={formData.domain}
-            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-            isDisabled={!!profile}
-          >
-            <option value="">Select domain</option>
-            <option value="workers-comp">Workers Comp</option>
-            <option value="employment">Employment</option>
-            <option value="ai-model-deployment">AI Model Deployment</option>
-            <option value="other">Other</option>
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Description</FormLabel>
-          <Textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Describe the governance profile..."
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Human Review Requirement</FormLabel>
-          <Select
-            value={formData.human_review_requirement}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                human_review_requirement: e.target.value as any,
-              })
-            }
-          >
-            <option value="required">Required</option>
-            <option value="conditional">Conditional</option>
-            <option value="optional">Optional</option>
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Allowed Actions</FormLabel>
-          <HStack spacing={2} flexWrap="wrap">
-            {['approve', 'reject', 'escalate', 'override'].map((action) => (
-              <Checkbox
-                key={action}
-                isChecked={formData.allowed_actions.includes(action)}
-                onChange={() => toggleAction(action)}
+            <HStack justify="flex-end" mb={2}>
+              <Button variant="ghost" onClick={onCancel} h="30px" fontSize="xs">
+                Cancel
+              </Button>
+              <Button
+                leftIcon={<Save size={16} />}
+                colorScheme="blue"
+                onClick={handleSave}
+                isLoading={saving}
+                h="30px"
+                fontSize="xs"
               >
-                {action}
-              </Checkbox>
-            ))}
-          </HStack>
-        </FormControl>
+                Save
+              </Button>
+            </HStack>
 
-        <FormControl>
-          <FormLabel>Risk Thresholds (JSON)</FormLabel>
-          <Textarea
-            value={riskThresholdsJson}
-            onChange={(e) => setRiskThresholdsJson(e.target.value)}
-            placeholder='{"low": {...}, "medium": {...}, "high": {...}}'
-            fontFamily="mono"
-            minH="150px"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Assignment Rules (JSON)</FormLabel>
-          <Textarea
-            value={assignmentRulesJson}
-            onChange={(e) => setAssignmentRulesJson(e.target.value)}
-            placeholder='{"roles": [...], "sla_hours": 48}'
-            fontFamily="mono"
-            minH="100px"
-          />
-        </FormControl>
-
-        <Divider />
-
-        <HStack justify="space-between">
-          <Text fontWeight="bold">Rules</Text>
-          <Button leftIcon={<Plus size={16} />} size="sm" onClick={addRule}>
-            Add Rule
-          </Button>
-        </HStack>
-
-        <VStack align="stretch" spacing={2}>
-          {formData.rules.map((rule, index) => (
-            <Box key={index} p={3} bg="gray.50" borderRadius="md">
-              <HStack mb={2}>
-                <Input
-                  placeholder="Rule type"
-                  value={rule.rule_type}
-                  onChange={(e) => updateRule(index, 'rule_type', e.target.value)}
-                  size="sm"
-                  flex={1}
-                />
-                <Input
-                  placeholder="Rule key"
-                  value={rule.rule_key}
-                  onChange={(e) => updateRule(index, 'rule_key', e.target.value)}
-                  size="sm"
-                  flex={1}
-                />
-                <Input
-                  type="number"
-                  placeholder="Priority"
-                  value={rule.priority}
-                  onChange={(e) => updateRule(index, 'priority', parseInt(e.target.value) || 0)}
-                  size="sm"
-                  width="100px"
-                />
-                <IconButton
-                  aria-label="Remove rule"
-                  icon={<X size={16} />}
-                  size="sm"
-                  onClick={() => removeRule(index)}
-                />
-              </HStack>
-              <Textarea
-                placeholder='Rule value (JSON)'
-                value={JSON.stringify(rule.rule_value, null, 2)}
-                onChange={(e) => {
-                  try {
-                    updateRule(index, 'rule_value', JSON.parse(e.target.value));
-                  } catch {}
-                }}
-                size="sm"
-                fontFamily="mono"
-                minH="60px"
+            <FormControl isRequired>
+              <FormLabel>Name</FormLabel>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., workers-comp-ime-review"
+                isDisabled={!!profile}
+                variant="outline"
+                border="1px solid"
+                borderColor="gray.300"
+                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _hover={{ borderColor: 'gray.400' }}
               />
-            </Box>
-          ))}
-        </VStack>
+            </FormControl>
 
-        <Divider />
-
-        <HStack justify="space-between">
-          <Text fontWeight="bold">Data Controls</Text>
-          <Button leftIcon={<Plus size={16} />} size="sm" onClick={addDataControl}>
-            Add Control
-          </Button>
-        </HStack>
-
-        <VStack align="stretch" spacing={2}>
-          {formData.data_controls.map((control, index) => (
-            <Box key={index} p={3} bg="gray.50" borderRadius="md">
-              <HStack mb={2}>
+            <FormControl isRequired>
+              <FormLabel>Domain</FormLabel>
+              <Box position="relative" ref={domainDropdownRef}>
                 <Input
-                  placeholder="Control type"
-                  value={control.control_type}
-                  onChange={(e) => updateDataControl(index, 'control_type', e.target.value)}
-                  size="sm"
-                  flex={1}
+                  value={profile ? getDomainLabel(formData.domain) : (domainInputValue !== undefined ? domainInputValue : '')}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setDomainInputValue(value);
+                    setFormData({ ...formData, domain: value });
+                    setIsDomainDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    if (!profile) {
+                      setIsDomainDropdownOpen(true);
+                      if (domainInputValue === undefined || domainInputValue === '') {
+                        setDomainInputValue('');
+                      }
+                    }
+                  }}
+                  placeholder="Select or type domain"
+                  isDisabled={!!profile}
+                  variant="outline"
+                  fontSize="sm"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none', ring: 'none', ringOffset: 'none' }}
+                  _hover={{ borderColor: 'gray.400' }}
+                  css={{
+                    '&:focus': {
+                      borderColor: '#9CA3AF !important',
+                      borderWidth: '1px !important',
+                      boxShadow: 'none !important',
+                      outline: 'none !important',
+                    },
+                  }}
                 />
-                <Checkbox
-                  isChecked={control.is_required}
-                  onChange={(e) => updateDataControl(index, 'is_required', e.target.checked)}
+                {isDomainDropdownOpen && !profile && getFilteredDomains(domainInputValue).length > 0 && (
+                  <Box
+                    position="absolute"
+                    top="100%"
+                    left={0}
+                    right={0}
+                    mt={1}
+                    bg="white"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    borderRadius="md"
+                    boxShadow="md"
+                    zIndex={10}
+                    maxH="200px"
+                    overflowY="auto"
+                  >
+                    <VStack align="stretch" spacing={0}>
+                      {getFilteredDomains(domainInputValue).map((option) => (
+                        <Box
+                          key={option.value}
+                          as="button"
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, domain: option.value });
+                            setDomainInputValue(option.label);
+                            setIsDomainDropdownOpen(false);
+                          }}
+                          px={3}
+                          py={2}
+                          textAlign="left"
+                          fontSize="sm"
+                          color="gray.700"
+                          bg={formData.domain === option.value ? 'gray.50' : 'white'}
+                          _hover={{ bg: 'gray.50' }}
+                          borderBottom={option.value !== getFilteredDomains(domainInputValue)[getFilteredDomains(domainInputValue).length - 1].value ? '1px solid' : 'none'}
+                          borderColor="gray.200"
+                          cursor="pointer"
+                        >
+                          {option.label}
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+              </Box>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Policy Statement</FormLabel>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe the governance profile..."
+                variant="outline"
+                border="1px solid"
+                borderColor="gray.300"
+                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _hover={{ borderColor: 'gray.400' }}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Human Review Requirement</FormLabel>
+              <Box position="relative" ref={humanReviewDropdownRef}>
+                <Box
+                  as="button"
+                  type="button"
+                  data-dropdown-button
+                  onClick={() => setIsHumanReviewDropdownOpen(!isHumanReviewDropdownOpen)}
+                  w="100%"
+                  px={3}
+                  py={2}
+                  borderRadius="md"
+                  border="1px solid"
+                  borderColor="gray.300"
+                  bg="white"
+                  color="gray.700"
+                  fontSize="sm"
+                  textAlign="left"
+                  cursor="pointer"
+                  _hover={{ borderColor: 'gray.400' }}
+                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none' }}
+                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px', outline: 'none' }}
+                  transition="all 0.2s"
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  css={{
+                    '&:focus': {
+                      borderColor: '#9CA3AF !important',
+                      borderWidth: '1px !important',
+                      boxShadow: 'none !important',
+                      outline: 'none !important',
+                    },
+                  }}
                 >
-                  Required
-                </Checkbox>
-                <IconButton
-                  aria-label="Remove control"
-                  icon={<X size={16} />}
-                  size="sm"
-                  onClick={() => removeDataControl(index)}
-                />
+                  <Text textTransform="capitalize">{getHumanReviewLabel(formData.human_review_requirement)}</Text>
+                  <ChevronDown size={16} style={{ transform: isHumanReviewDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                </Box>
+                {isHumanReviewDropdownOpen && (
+                  <Box
+                    position="absolute"
+                    top="100%"
+                    left={0}
+                    right={0}
+                    mt={1}
+                    bg="white"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    borderRadius="md"
+                    boxShadow="md"
+                    zIndex={10}
+                  >
+                    <VStack align="stretch" spacing={0}>
+                      {humanReviewOptions.map((option) => (
+                        <Box
+                          key={option.value}
+                          as="button"
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, human_review_requirement: option.value as any });
+                            setIsHumanReviewDropdownOpen(false);
+                          }}
+                          px={3}
+                          py={2}
+                          textAlign="left"
+                          fontSize="sm"
+                          color="gray.700"
+                          _hover={{ bg: 'gray.50' }}
+                          bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
+                        >
+                          {option.label}
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+              </Box>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Allowed Actions</FormLabel>
+              <HStack spacing={2} flexWrap="wrap">
+                {['approve', 'reject', 'escalate', 'override'].map((action) => {
+                  const isSelected = formData.allowed_actions.includes(action);
+                  return (
+                    <Box
+                      key={action}
+                      as="button"
+                      type="button"
+                      data-action-button
+                      onClick={() => toggleAction(action)}
+                      px={3}
+                      py={1.5}
+                      borderRadius="md"
+                      bg={isSelected ? 'blue.50' : 'white'}
+                      color={isSelected ? 'blue.700' : 'gray.700'}
+                      fontSize="sm"
+                      fontWeight={isSelected ? '500' : '400'}
+                      cursor="pointer"
+                      sx={{
+                        border: '1px solid !important',
+                        borderColor: isSelected ? '#3182CE !important' : '#CBD5E0 !important',
+                        '&:hover': {
+                          borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                          border: '1px solid !important',
+                          bg: isSelected ? '#BEE3F8' : '#F7FAFC',
+                        },
+                        '&:active': {
+                          border: '1px solid !important',
+                          borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                          bg: isSelected ? '#90CDF4' : '#EDF2F7',
+                        },
+                        '&:focus': {
+                          border: '1px solid !important',
+                          borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                          outline: 'none',
+                          boxShadow: 'none',
+                        },
+                        '&:focus-visible': {
+                          border: '1px solid !important',
+                          borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                          outline: 'none',
+                          boxShadow: 'none',
+                        },
+                      }}
+                    >
+                      {action.charAt(0).toUpperCase() + action.slice(1)}
+                    </Box>
+                  );
+                })}
               </HStack>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Risk Thresholds (JSON)</FormLabel>
               <Textarea
-                placeholder='Control config (JSON)'
-                value={JSON.stringify(control.control_config, null, 2)}
-                onChange={(e) => {
-                  try {
-                    updateDataControl(index, 'control_config', JSON.parse(e.target.value));
-                  } catch {}
-                }}
-                size="sm"
+                value={riskThresholdsJson}
+                onChange={(e) => setRiskThresholdsJson(e.target.value)}
+                placeholder='{"low": {...}, "medium": {...}, "high": {...}}'
                 fontFamily="mono"
-                minH="60px"
+                minH="150px"
+                variant="outline"
+                border="1px solid"
+                borderColor="gray.300"
+                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _hover={{ borderColor: 'gray.400' }}
               />
-            </Box>
-          ))}
-        </VStack>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Assignment Rules (JSON)</FormLabel>
+              <Textarea
+                value={assignmentRulesJson}
+                onChange={(e) => setAssignmentRulesJson(e.target.value)}
+                placeholder='{"roles": [...], "sla_hours": 48}'
+                fontFamily="mono"
+                minH="100px"
+                variant="outline"
+                border="1px solid"
+                borderColor="gray.300"
+                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                _hover={{ borderColor: 'gray.400' }}
+              />
+            </FormControl>
+
+            <Divider />
+
+            <HStack justify="space-between">
+              <Text fontWeight="bold">Rules</Text>
+              <Button leftIcon={<Plus size={16} />} size="sm" onClick={addRule}>
+                Add Rule
+              </Button>
+            </HStack>
+
+            <VStack align="stretch" spacing={2}>
+              {formData.rules.map((rule, index) => (
+                <Box key={index} p={3} bg="gray.50" borderRadius="md">
+                  <HStack mb={2}>
+                    <Input
+                      placeholder="Rule type"
+                      value={rule.rule_type}
+                      onChange={(e) => updateRule(index, 'rule_type', e.target.value)}
+                      size="sm"
+                      flex={1}
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                    <Input
+                      placeholder="Rule key"
+                      value={rule.rule_key}
+                      onChange={(e) => updateRule(index, 'rule_key', e.target.value)}
+                      size="sm"
+                      flex={1}
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Priority"
+                      value={rule.priority}
+                      onChange={(e) => updateRule(index, 'priority', parseInt(e.target.value) || 0)}
+                      size="sm"
+                      width="100px"
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                    <IconButton
+                      aria-label="Remove rule"
+                      icon={<X size={16} />}
+                      size="sm"
+                      onClick={() => removeRule(index)}
+                    />
+                  </HStack>
+                  <Textarea
+                    placeholder='Rule value (JSON)'
+                    value={JSON.stringify(rule.rule_value, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        updateRule(index, 'rule_value', JSON.parse(e.target.value));
+                      } catch {}
+                    }}
+                    size="sm"
+                    fontFamily="mono"
+                    minH="60px"
+                    variant="outline"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                    _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                    _hover={{ borderColor: 'gray.400' }}
+                  />
+                </Box>
+              ))}
+            </VStack>
+
+            <Divider />
+
+            <HStack justify="space-between">
+              <Text fontWeight="bold">Data Controls</Text>
+              <Button leftIcon={<Plus size={16} />} size="sm" onClick={addDataControl}>
+                Add Control
+              </Button>
+            </HStack>
+
+            <VStack align="stretch" spacing={2}>
+              {formData.data_controls.map((control, index) => (
+                <Box key={index} p={3} bg="gray.50" borderRadius="md">
+                  <HStack mb={2}>
+                    <Input
+                      placeholder="Control type"
+                      value={control.control_type}
+                      onChange={(e) => updateDataControl(index, 'control_type', e.target.value)}
+                      size="sm"
+                      flex={1}
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                    <Checkbox
+                      isChecked={control.is_required}
+                      onChange={(e) => updateDataControl(index, 'is_required', e.target.checked)}
+                    >
+                      Required
+                    </Checkbox>
+                    <IconButton
+                      aria-label="Remove control"
+                      icon={<X size={16} />}
+                      size="sm"
+                      onClick={() => removeDataControl(index)}
+                    />
+                  </HStack>
+                  <Textarea
+                    placeholder='Control config (JSON)'
+                    value={JSON.stringify(control.control_config, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        updateDataControl(index, 'control_config', JSON.parse(e.target.value));
+                      } catch {}
+                    }}
+                    size="sm"
+                    fontFamily="mono"
+                    minH="60px"
+                    variant="outline"
+                    border="1px solid"
+                    borderColor="gray.300"
+                    _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                    _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                    _hover={{ borderColor: 'gray.400' }}
+                  />
+                </Box>
+              ))}
+            </VStack>
       </VStack>
     </Box>
   );
-}
+});
+
+ProfileForm.displayName = 'ProfileForm';
+
+export default ProfileForm;
 

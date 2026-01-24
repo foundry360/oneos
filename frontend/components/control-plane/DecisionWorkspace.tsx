@@ -213,7 +213,7 @@ export default function DecisionWorkspace({
         px={2}
         py={0.5}
         borderRadius="md"
-        bg="transparent"
+        bg="blue.50"
         border="1px solid"
         borderColor="gray.200"
         fontSize="xs"
@@ -226,7 +226,7 @@ export default function DecisionWorkspace({
           borderRadius="full"
           bg={dotColor}
         />
-        <Text color="gray.700" textTransform="none">{statusText}</Text>
+        <Text color="blue.700" textTransform="none">{statusText}</Text>
       </Badge>
     );
   };

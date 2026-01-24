@@ -315,6 +315,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/control-plane" isCollapsed={isCollapsed} icon={<LayoutDashboard size={20} />}>
               Control Plane
             </NavLink>
+            <NavLink href="/governance-profiles" isCollapsed={isCollapsed} icon={<ShieldCheck size={20} />}>
+              Governance Profiles
+            </NavLink>
             <NavLink href="/files" isCollapsed={isCollapsed} icon={<FileText size={20} />}>
               Files
             </NavLink>
@@ -323,9 +326,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </NavLink>
             <NavLink href="/reviews" isCollapsed={isCollapsed} icon={<ClipboardCheck size={20} />}>
               Review Tasks
-            </NavLink>
-            <NavLink href="/governance-profiles" isCollapsed={isCollapsed} icon={<ShieldCheck size={20} />}>
-              Governance Profiles
             </NavLink>
             <Box mt="auto" pt={4} borderTop="1px solid" borderColor="gray.200">
               <Box 

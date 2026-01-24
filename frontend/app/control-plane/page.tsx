@@ -212,18 +212,6 @@ export default function ControlPlanePage() {
             </Text>
             <HStack spacing={2} flex={1} justify="flex-end">
               <IconButton
-                aria-label="Expand judgment"
-                icon={<Maximize2 size={18} />}
-                size="sm"
-                variant="ghost"
-                color="gray.600"
-                _hover={{ bg: 'gray.100', color: 'gray.900' }}
-                _focus={{ boxShadow: 'none', outline: 'none' }}
-                onClick={onJudgmentModalOpen}
-                isDisabled={!selectedDecision}
-                opacity={selectedDecision ? 1 : 0.5}
-              />
-              <IconButton
                 aria-label="Share decision"
                 icon={<Share2 size={18} />}
                 size="sm"
@@ -244,6 +232,18 @@ export default function ControlPlanePage() {
                 _hover={{ bg: 'gray.100', color: 'gray.900' }}
                 _focus={{ boxShadow: 'none', outline: 'none' }}
                 onClick={handleDownload}
+                isDisabled={!selectedDecision}
+                opacity={selectedDecision ? 1 : 0.5}
+              />
+              <IconButton
+                aria-label="Expand judgment"
+                icon={<Maximize2 size={18} />}
+                size="sm"
+                variant="ghost"
+                color="gray.600"
+                _hover={{ bg: 'gray.100', color: 'gray.900' }}
+                _focus={{ boxShadow: 'none', outline: 'none' }}
+                onClick={onJudgmentModalOpen}
                 isDisabled={!selectedDecision}
                 opacity={selectedDecision ? 1 : 0.5}
               />

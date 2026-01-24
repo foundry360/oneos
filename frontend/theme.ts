@@ -24,22 +24,40 @@ const theme = extendTheme({
       '*:focus': {
         outline: 'none !important',
         boxShadow: 'none !important',
-        border: 'none !important',
       },
       '*:focus-visible': {
         outline: 'none !important',
         boxShadow: 'none !important',
-        border: 'none !important',
       },
-      'button:focus': {
+      'input:focus, input:focus-visible, textarea:focus, textarea:focus-visible': {
+        border: '1px solid #9CA3AF !important',
+        outline: 'none !important',
+        boxShadow: 'none !important',
+      },
+      'button:focus, button:focus-visible, button[type="button"]:focus, button[type="button"]:focus-visible': {
+        border: '1px solid #9CA3AF !important',
+        outline: 'none !important',
+        boxShadow: 'none !important',
+      },
+      'button:focus:not([data-dropdown-button]):not([data-action-button])': {
         outline: 'none !important',
         boxShadow: 'none !important',
         border: 'none !important',
       },
-      'button:focus-visible': {
+      'button:focus-visible:not([data-dropdown-button]):not([data-action-button])': {
         outline: 'none !important',
         boxShadow: 'none !important',
         border: 'none !important',
+      },
+      'button[data-dropdown-button]:focus, button[data-dropdown-button]:focus-visible, button[data-dropdown-button]:active': {
+        border: '1px solid #9CA3AF !important',
+        outline: 'none !important',
+        boxShadow: 'none !important',
+      },
+      'button[data-action-button]:focus, button[data-action-button]:focus-visible, button[data-action-button]:active': {
+        border: '1px solid !important',
+        outline: 'none !important',
+        boxShadow: 'none !important',
       },
       '[role="button"]:focus': {
         outline: 'none !important',
@@ -88,6 +106,8 @@ const theme = extendTheme({
         colorScheme: 'blue',
       },
       baseStyle: {
+        h: '30px',
+        fontSize: 'xs',
         _focus: {
           boxShadow: 'none',
           outline: 'none',
@@ -131,6 +151,22 @@ const theme = extendTheme({
       baseStyle: {
         content: {
           boxShadow: 'xl',
+        },
+      },
+    },
+    ModalCloseButton: {
+      baseStyle: {
+        bg: 'blue.50',
+        borderRadius: 'md',
+        _hover: {
+          bg: 'blue.100',
+        },
+        _active: {
+          bg: 'blue.200',
+        },
+        _focus: {
+          bg: 'blue.50',
+          boxShadow: 'none',
         },
       },
     },

@@ -306,6 +306,7 @@ export default function DecisionContextPanel({
                 _disabled={{ opacity: 0.5, cursor: 'not-allowed' }}
                 aria-label="Approve decision"
                 flex={1}
+                fontSize="xs"
               >
                 Approve
               </Button>
@@ -317,6 +318,7 @@ export default function DecisionContextPanel({
                 _disabled={{ opacity: 0.5, cursor: 'not-allowed' }}
                 aria-label="Reject decision"
                 flex={1}
+                fontSize="xs"
               >
                 Reject
               </Button>
@@ -328,6 +330,7 @@ export default function DecisionContextPanel({
                 _disabled={{ opacity: 0.5, cursor: 'not-allowed' }}
                 aria-label="Escalate decision"
                 flex={1}
+                fontSize="xs"
               >
                 Escalate
               </Button>
@@ -367,7 +370,7 @@ export default function DecisionContextPanel({
       {/* Confirmation Modal for Destructive Actions */}
       <Modal isOpen={isOpen} onClose={onCloseModal} size="md">
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent borderRadius="3xl">
           <ModalHeader>
             Confirm {pendingAction === 'reject' ? 'Rejection' : 'Escalation'}
           </ModalHeader>
@@ -385,12 +388,14 @@ export default function DecisionContextPanel({
             </Text>
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onCloseModal}>
+            <Button variant="ghost" mr={3} onClick={onCloseModal} h="30px" fontSize="xs">
               Cancel
             </Button>
             <Button
               colorScheme={getActionButtonColor(pendingAction || 'reject')}
               onClick={handleConfirmAction}
+              h="30px"
+              fontSize="xs"
             >
               Confirm {pendingAction === 'reject' ? 'Rejection' : 'Escalation'}
             </Button>

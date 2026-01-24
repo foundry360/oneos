@@ -11,7 +11,7 @@ class LedgerService {
   /**
    * Store a ledger entry for a governance profile change
    * @param {string} profileId - Profile ID
-   * @param {string} action - Action performed (activated, deprecated, updated)
+   * @param {string} action - Action performed (activated, archived, updated)
    * @param {string} versionHash - SHA-256 hash of the profile content
    * @param {object} metadata - Additional metadata
    * @returns {Promise<object>} Ledger entry with hash and timestamp
@@ -120,6 +120,87 @@ class LedgerService {
     } catch (error) {
       logger.warn('Failed to get ledger history (table may not exist)', { error: error.message });
       return [];
+    }
+  }
+
+  /**
+   * Store export entry in ledger
+   * @param {object} exportData - Export event data
+   * @returns {Promise<object>} Ledger entry with hash and timestamp
+   */
+  async storeExportEntry(exportData) {
+    try {
+      const entryId = crypto.randomUUID();
+      const timestamp = exportData.timestamp || new Date().toISOString();
+      
+      // Create ledger entry data
+      const entryData = {
+        event_type: exportData.event_type,
+        profile_id: exportData.profile_id,
+        profile_version: exportData.profile_version,
+        export_format: exportData.export_format,
+        justification: exportData.justification,
+        exported_by: exportData.exported_by,
+        timestamp: timestamp,
+        artifact_hash: exportData.artifact_hash,
+        artifact_reference: exportData.artifact_reference,
+        redaction_level: exportData.redaction_level,
+        watermark_label: exportData.watermark_label,
+      };
+      
+      // Compute hash of the entry itself
+      const entryHash = crypto
+        .createHash('sha256')
+        .update(JSON.stringify(entryData))
+        .digest('hex');
+      
+      // Store in ledger_entries table
+      try {
+        await db.query(
+          `INSERT INTO ledger_entries (id, profile_id, action, version_hash, entry_hash, timestamp, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [
+            entryId,
+            exportData.profile_id,
+            'PROFILE_EXPORTED',
+            exportData.artifact_hash,
+            entryHash,
+            timestamp,
+            JSON.stringify({
+              event_type: exportData.event_type,
+              profile_version: exportData.profile_version,
+              export_format: exportData.export_format,
+              justification: exportData.justification,
+              exported_by: exportData.exported_by,
+              artifact_reference: exportData.artifact_reference,
+              redaction_level: exportData.redaction_level,
+              watermark_label: exportData.watermark_label,
+            })
+          ]
+        );
+      } catch (error) {
+        // If ledger_entries table doesn't exist, just log
+        logger.warn('Ledger entries table not found, logging export entry only', { entryData });
+      }
+      
+      logger.info('Export ledger entry stored', {
+        entryId,
+        profileId: exportData.profile_id,
+        artifactHash: exportData.artifact_hash,
+        entryHash,
+        timestamp
+      });
+      
+      return {
+        entryId,
+        entryHash,
+        timestamp,
+        artifactHash: exportData.artifact_hash
+      };
+    } catch (error) {
+      logger.error('Failed to store export ledger entry', { error: error.message });
+      throw error;
     }
   }
 }
