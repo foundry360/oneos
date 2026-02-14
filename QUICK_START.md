@@ -80,3 +80,6 @@ docker-compose logs [service-name]  # Check logs
 - **Architecture**: See [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
 - **Deployment**: See [README.md](./README.md)
 
+
+
+

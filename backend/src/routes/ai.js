@@ -1,11 +1,13 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const auditLog = require('../middleware/audit');
 const logger = require('../utils/logger');
 const pubsub = require('../config/pubsub');
 const aiService = require('../services/aiService');
+const ledgerService = require('../services/ledgerService');
 
 const router = express.Router();
 
@@ -19,16 +21,48 @@ router.post('/inference', authenticate, auditLog, async (req, res) => {
     }
     
     // Create inference record
+    const inferenceId = uuidv4();
     const inferenceResult = await db.query(
       `INSERT INTO ai_inference (id, tokenized_data_id, model_name, inference_type, status)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [uuidv4(), tokenizedDataId, modelName, inferenceType, 'pending']
+      [inferenceId, tokenizedDataId, modelName, inferenceType, 'pending']
     );
+    
+    // Compute inference hash for blockchain
+    const inferenceHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({
+        inferenceId,
+        tokenizedDataId,
+        modelName,
+        inferenceType,
+        status: 'pending',
+        timestamp: new Date().toISOString()
+      }))
+      .digest('hex');
+
+    // Store AI inference creation in blockchain ledger
+    try {
+      await ledgerService.storeInferenceEntry(
+        inferenceId,
+        inferenceHash,
+        {
+          tokenizedDataId,
+          modelName,
+          inferenceType,
+          status: 'pending',
+          createdBy: req.user.id
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store AI inference creation in ledger', { error: ledgerError.message });
+      // Don't fail the request if ledger write fails, but log it
+    }
     
     // Publish inference task
     await pubsub.publishMessage('ai-inference-tasks', {
-      inferenceId: inferenceResult.rows[0].id,
+      inferenceId,
       tokenizedDataId,
       modelName,
       inferenceType

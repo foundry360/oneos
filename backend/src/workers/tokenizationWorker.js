@@ -3,6 +3,8 @@ const storage = require('../utils/storage');
 const pubsub = require('../config/pubsub');
 const aiService = require('../services/aiService');
 const logger = require('../utils/logger');
+const ledgerService = require('../services/ledgerService');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 // Process tokenization tasks
@@ -49,7 +51,47 @@ async function processTokenizationTask(data, attributes) {
       ]
     );
 
-    logger.info('Tokenization completed', { fileId, tokenizedId, tokenCount: tokenizationResult.tokenCount });
+    // Compute hash of tokenized content for blockchain
+    const tokenizedHash = crypto
+      .createHash('sha256')
+      .update(tokenizationResult.tokenizedContent)
+      .digest('hex');
+    
+    // Compute hash of original file (if available)
+    const fileHash = crypto
+      .createHash('sha256')
+      .update(fileContent)
+      .digest('hex');
+
+    // Store tokenized data in blockchain ledger
+    try {
+      await ledgerService.storeTokenizedData(
+        tokenizedId,
+        tokenizedHash,
+        {
+          rawDataId: fileId,
+          tokenCount: tokenizationResult.tokenCount,
+          tokenizationMethod: tokenizationResult.method,
+          fileHash: fileHash,
+          filename: filename,
+          encrypted: true // Files are encrypted in storage
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store tokenized data in ledger', { 
+        error: ledgerError.message,
+        tokenizedId,
+        fileId
+      });
+      // Don't fail tokenization if ledger write fails, but log it
+    }
+
+    logger.info('Tokenization completed', { 
+      fileId, 
+      tokenizedId, 
+      tokenCount: tokenizationResult.tokenCount,
+      tokenizedHash
+    });
 
     // Optionally trigger AI inference
     await pubsub.publishMessage('ai-inference-tasks', {

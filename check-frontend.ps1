@@ -23,3 +23,6 @@ Write-Host "To start the frontend, run:" -ForegroundColor Yellow
 Write-Host "  cd frontend" -ForegroundColor White
 Write-Host "  npm run dev" -ForegroundColor White
 
+
+
+

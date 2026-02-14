@@ -1,12 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const db = require('../config/database');
 const storage = require('../utils/storage');
 const { authenticate, optionalAuthenticate } = require('../middleware/auth');
 const auditLog = require('../middleware/audit');
 const logger = require('../utils/logger');
 const pubsub = require('../config/pubsub');
+const ledgerService = require('../services/ledgerService');
 
 const router = express.Router();
 
@@ -49,6 +51,30 @@ router.post('/upload', authenticate, auditLog, upload.single('file'), async (req
         })
       ]
     );
+
+    // Compute file hash for blockchain
+    const fileHash = crypto
+      .createHash('sha256')
+      .update(req.file.buffer)
+      .digest('hex');
+
+    // Store file upload in blockchain ledger
+    try {
+      await ledgerService.storeFileUpload(
+        fileId,
+        fileHash,
+        {
+          filename: req.file.originalname,
+          fileSize: size,
+          mimeType: req.file.mimetype,
+          uploadedBy: req.user.id,
+          filePath
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store file upload in ledger', { error: ledgerError.message });
+      // Don't fail the request if ledger write fails, but log it
+    }
 
     // Publish tokenization task
     await pubsub.publishMessage('tokenization-tasks', {
@@ -140,6 +166,21 @@ router.delete('/:id', authenticate, auditLog, async (req, res) => {
     
     // Delete from storage
     await storage.deleteFile(file.file_path.split('/').pop());
+    
+    // Store file deletion in blockchain ledger
+    try {
+      await ledgerService.storeFileDeletion(
+        req.params.id,
+        {
+          filename: file.filename,
+          deletedBy: req.user.id,
+          filePath: file.file_path
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store file deletion in ledger', { error: ledgerError.message });
+      // Don't fail the request if ledger write fails, but log it
+    }
     
     // Delete from database
     await db.query('DELETE FROM raw_data WHERE id = $1', [req.params.id]);

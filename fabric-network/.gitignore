@@ -1,0 +1,17 @@
+# Cryptographic materials (generated)
+crypto-config/
+
+# Channel artifacts (generated)
+channel-artifacts/*.block
+channel-artifacts/*.tx
+
+# Fabric binaries (downloaded)
+fabric-samples/
+bin/
+
+# Logs
+*.log
+
+
+
+

@@ -1,0 +1,12 @@
+﻿{
+    "type":  "X.509",
+    "credentials":  {
+                        "privateKey":  [
+
+                                       ],
+                        "certificate":  [
+
+                                        ]
+                    },
+    "mspId":  "Org1MSP"
+}

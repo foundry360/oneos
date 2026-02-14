@@ -1,6 +1,6 @@
 'use client';
 
-import { ChakraProvider } from '@chakra-ui/react';
+import { ChakraProvider, Box } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { useState } from 'react';
 import theme from '../theme';
@@ -24,8 +24,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <QueryClientProvider client={queryClient}>
-          <ChakraProvider theme={theme}>
-            {children}
+          <ChakraProvider theme={theme} resetCSS={false}>
+            <Box suppressHydrationWarning>
+              {children}
+            </Box>
           </ChakraProvider>
         </QueryClientProvider>
       </body>

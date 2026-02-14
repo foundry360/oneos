@@ -72,8 +72,12 @@ export default function DecisionScopePanel({
         py={5}
         borderBottom="1px solid"
         borderColor="gray.200"
+        minH="48px"
+        h="48px"
+        display="flex"
+        alignItems="center"
       >
-        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em">
+        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em" lineHeight="1.2">
           Decision Scope
         </Text>
       </Box>

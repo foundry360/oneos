@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  # External Chaincode Service (bypasses Docker build issues)
+  chaincode-governance-ledger:
+    image: governance-ledger:1.0
+    container_name: chaincode-governance-ledger
+    environment:
+      - CHAINCODE_SERVER_ADDRESS=0.0.0.0:9999
+      - CHAINCODE_ID=governance-ledger:1.0
+      - CORE_CHAINCODE_ID_NAME=governance-ledger:1.0
+    ports:
+      - "9999:9999"
+    networks:
+      - default
+    command: node index.js
+
+
+

@@ -32,3 +32,6 @@ Write-Host "  Get-Job | Stop-Job; Get-Job | Remove-Job" -ForegroundColor White
 # Keep jobs running
 $backendJob, $frontendJob | Out-Null
 
+
+
+

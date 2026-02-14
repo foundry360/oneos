@@ -254,6 +254,18 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
 
   const handleExport = async () => {
     if (!profile || !exportConfirmed) return;
+    
+    // Validate justification
+    if (!justification.trim()) {
+      toast({
+        title: 'Justification required',
+        description: 'Please provide a justification for the export.',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+    
     setExporting(true);
     try {
       const result = await exportProfile(profile.id, {
@@ -1117,12 +1129,19 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
           >
             <Accordion allowToggle defaultIndex={[]}>
               <AccordionItem border="none">
-                <AccordionButton px={0} py={2} _hover={{ bg: 'transparent' }}>
-                  <Box flex="1" textAlign="left">
-                    <Text fontSize="lg" fontWeight="600">
-                      Advanced Configuration (JSON)
-                    </Text>
-                  </Box>
+                <AccordionButton 
+                  px={0} 
+                  py={2} 
+                  _hover={{ bg: 'transparent' }}
+                  sx={{
+                    fontSize: '18px !important',
+                    fontWeight: '600 !important',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Text flex="1" textAlign="left" fontSize="lg" fontWeight="600" as="span">
+                    Advanced Configuration (JSON)
+                  </Text>
                   <AccordionIcon />
                 </AccordionButton>
                 <AccordionPanel pb={4} px={0}>
@@ -1148,8 +1167,8 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
                         fontSize="xs"
                         maxH="400px"
                         overflowY="auto"
-                        bg="gray.900"
-                        color="gray.100"
+                        bg="gray.100"
+                        color="gray.800"
                       >
                         {JSON.stringify(profile, null, 2)}
                       </Code>

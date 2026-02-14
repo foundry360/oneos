@@ -22,3 +22,6 @@ COMMENT ON TABLE ledger_entries IS 'Ledger entries for governance profile change
 COMMENT ON COLUMN ledger_entries.version_hash IS 'SHA-256 hash of the profile content at this version';
 COMMENT ON COLUMN ledger_entries.entry_hash IS 'SHA-256 hash of this ledger entry for integrity verification';
 
+
+
+

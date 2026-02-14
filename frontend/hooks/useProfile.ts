@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Create supabase client with auth persistence
-const getSupabaseClient = () => {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
+// Ensure API_URL always has /api suffix
+const getApiUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  return url.endsWith('/api') ? url : `${url}/api`;
 };
+
+const API_URL = getApiUrl();
 
 export interface Profile {
   id: string;
@@ -32,24 +24,38 @@ export function useProfile(userId: string | undefined) {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase || !userId) {
+    if (!userId) {
       setLoading(false);
       return;
     }
 
     const fetchProfile = async () => {
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
+        const token = localStorage.getItem('auth-token');
+        if (!token) {
+          setLoading(false);
+          return;
+        }
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error('Error fetching profile:', error);
-        } else {
-          setProfile(data || null);
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setProfile({
+              id: data.user.id,
+              email: data.user.email,
+              role: data.user.role || 'user',
+              display_name: data.user.display_name,
+              avatar_url: data.user.avatar_url,
+              created_at: data.user.created_at,
+              updated_at: data.user.updated_at,
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -62,54 +68,35 @@ export function useProfile(userId: string | undefined) {
   }, [userId]);
 
   const updateProfile = async (updates: { display_name?: string; avatar_url?: string }) => {
-    const supabase = getSupabaseClient();
-    if (!supabase || !userId) {
-      throw new Error('Supabase not configured or user not logged in');
+    if (!userId) {
+      throw new Error('User not logged in');
     }
 
     setUpdating(true);
     try {
-      // First check if profile exists, if not create it
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .single();
-
-      let data, error;
-      
-      if (existingProfile) {
-        // Update existing profile
-        const result = await supabase
-          .from('profiles')
-          .update(updates)
-          .eq('id', userId)
-          .select()
-          .single();
-        data = result.data;
-        error = result.error;
-      } else {
-        // Create new profile with updates
-        const result = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            email: '', // Will be set by trigger or we need to get it
-            ...updates,
-          })
-          .select()
-          .single();
-        data = result.data;
-        error = result.error;
+      const token = localStorage.getItem('auth-token');
+      if (!token) {
+        throw new Error('Not authenticated');
       }
 
-      if (error) {
-        console.error('Profile update error:', error);
-        throw error;
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update profile');
       }
+
+      const data = await response.json();
+      setProfile(prev => prev ? { ...prev, ...data.profile } : data.profile);
       
-      setProfile(data);
-      return data;
+      return data.profile;
     } catch (error: any) {
       console.error('Error updating profile:', error);
       throw new Error(error?.message || 'Failed to update profile');
@@ -119,60 +106,23 @@ export function useProfile(userId: string | undefined) {
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-    const supabase = getSupabaseClient();
-    if (!supabase || !userId) {
-      throw new Error('Supabase not configured or user not logged in');
+    if (!userId) {
+      throw new Error('User not logged in');
     }
 
-    // Generate unique filename
-    // Store in a folder structure: {userId}/{filename} for better organization
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${userId}/${fileName}`;
-
-    // Delete old avatar if exists
-    try {
-      const { data: oldProfile } = await supabase
-        .from('profiles')
-        .select('avatar_url')
-        .eq('id', userId)
-        .single();
-      
-      if (oldProfile?.avatar_url) {
-        const oldFileName = oldProfile.avatar_url.split('/').pop();
-        if (oldFileName) {
-          await supabase.storage
-            .from('profile-avatars')
-            .remove([oldFileName]);
-        }
-      }
-    } catch (error) {
-      // Ignore errors when deleting old avatar
-      console.log('Could not delete old avatar:', error);
-    }
-
-    // Upload file to Supabase storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('profile-avatars')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true, // Allow overwriting
-      });
-
-    if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      throw new Error(uploadError.message || 'Failed to upload avatar');
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('profile-avatars')
-      .getPublicUrl(filePath);
-
-    // Update profile with avatar URL
-    await updateProfile({ avatar_url: publicUrl });
-
-    return publicUrl;
+    // For now, create a data URL (base64)
+    // TODO: Implement file upload endpoint in backend
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        updateProfile({ avatar_url: dataUrl })
+          .then(() => resolve(dataUrl))
+          .catch(reject);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   return {
@@ -183,4 +133,3 @@ export function useProfile(userId: string | undefined) {
     uploadAvatar,
   };
 }
-

@@ -1,45 +1,44 @@
-const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
+const db = require('../config/database');
 const logger = require('../utils/logger');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  logger.warn('Supabase credentials not configured. Auth middleware will be disabled.');
-}
-
-const supabase = supabaseUrl && supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null;
-
-// Verify JWT token from Supabase
+// Verify JWT token from local authentication
 async function verifyToken(token) {
-  if (!supabase) {
-    throw new Error('Authentication not configured. SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.');
-  }
-
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const decoded = jwt.verify(token, JWT_SECRET);
     
-    if (error) {
-      logger.error('Supabase token verification error', { 
-        error: error.message, 
-        status: error.status,
-        name: error.name 
-      });
-      throw error;
+    // Verify user still exists in database
+    const result = await db.query(
+      `SELECT u.id, u.email, p.role
+       FROM users u
+       LEFT JOIN profiles p ON u.id = p.id
+       WHERE u.id = $1`,
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
     }
+
+    const user = result.rows[0];
     
-    if (!user) {
-      throw new Error('User not found in token');
-    }
-    
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role || 'user'
+    };
   } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      throw new Error('Invalid token');
+    }
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Token expired');
+    }
     logger.error('Token verification failed', { 
       error: error.message,
-      name: error.name,
-      status: error.status 
+      name: error.name
     });
     throw error;
   }
@@ -47,14 +46,6 @@ async function verifyToken(token) {
 
 // Authentication middleware
 async function authenticate(req, res, next) {
-  if (!supabase) {
-    logger.error('Supabase not configured');
-    return res.status(500).json({ 
-      error: 'Authentication not configured',
-      message: 'SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables'
-    });
-  }
-  
   try {
     const authHeader = req.headers.authorization;
     
@@ -87,15 +78,14 @@ async function authenticate(req, res, next) {
   } catch (error) {
     logger.error('Authentication failed', { 
       error: error.message,
-      name: error.name,
-      status: error.status 
+      name: error.name
     });
     
     // Provide more specific error messages
-    if (error.message?.includes('JWT')) {
+    if (error.message?.includes('Invalid token') || error.message?.includes('JWT')) {
       return res.status(401).json({ error: 'Invalid token format' });
     }
-    if (error.status === 401 || error.message?.includes('expired')) {
+    if (error.message?.includes('expired')) {
       return res.status(401).json({ error: 'Token expired. Please log in again.' });
     }
     

@@ -89,3 +89,6 @@ To verify the fix works:
 ## Files Modified
 - `backend/src/middleware/auth.js` - Fixed user object structure and added early bypass
 
+
+
+

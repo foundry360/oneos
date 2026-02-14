@@ -56,3 +56,6 @@ ORDER BY u.created_at DESC;
 -- UPDATE profiles SET role = 'reviewer' WHERE email = 'your-email@example.com';
 -- ============================================================================
 
+
+
+

@@ -270,10 +270,31 @@ class GovernanceProfileService {
         );
       }
       
+      // Compute profile hash for blockchain
+      const profileHash = await this.computeProfileHash(profile.id);
+      
+      // Store profile creation in blockchain ledger
+      try {
+        await ledgerService.storeEntry(
+          profile.id,
+          'PROFILE_CREATED',
+          profileHash,
+          {
+            createdBy: userId,
+            name: profile.name,
+            status: 'draft',
+            version: profile.version
+          }
+        );
+      } catch (ledgerError) {
+        logger.error('Failed to store profile creation in ledger', { error: ledgerError.message });
+        // Don't fail the request if ledger write fails, but log it
+      }
+      
       // Create audit log
       await this.createAuditLog(profile.id, 'created', userId, null, 'Profile created');
       
-      logger.info('Profile created', { profileId: profile.id, name: profile.name });
+      logger.info('Profile created', { profileId: profile.id, name: profile.name, profileHash });
       
       return await this.getProfileById(profile.id);
     } catch (error) {
@@ -475,10 +496,30 @@ class GovernanceProfileService {
         }
       }
       
+      // Compute updated profile hash
+      const updatedHash = await this.computeProfileHash(profileId);
+      
+      // Store profile update in blockchain ledger
+      try {
+        await ledgerService.storeProfileUpdate(
+          profileId,
+          updatedHash,
+          {
+            updatedBy: userId,
+            changes: Object.keys(profileData),
+            status: 'draft',
+            timestamp: new Date().toISOString()
+          }
+        );
+      } catch (ledgerError) {
+        logger.error('Failed to store profile update in ledger', { error: ledgerError.message });
+        // Don't fail the request if ledger write fails, but log it
+      }
+      
       // Create audit log
       await this.createAuditLog(profileId, 'updated', userId, { changes: profileData }, 'Profile updated');
       
-      logger.info('Profile updated', { profileId });
+      logger.info('Profile updated', { profileId, updatedHash });
       
       return await this.getProfileById(profileId);
     } catch (error) {

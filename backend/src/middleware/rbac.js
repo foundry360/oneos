@@ -56,13 +56,25 @@ async function getUserRole(userId) {
  */
 function requireRole(...allowedRoles) {
   return async (req, res, next) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:58',message:'requireRole entry',data:{hasUser:!!req.user,userId:req.user?.id,allowedRoles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     try {
       if (!req.user || !req.user.id) {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:61',message:'No user in requireRole',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         return res.status(401).json({ error: 'Authentication required' });
       }
       
       // Get role from database (Supabase) - authoritative source
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:65',message:'Getting user role',data:{userId:req.user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       let userRole = await getUserRole(req.user.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:66',message:'User role from DB',data:{userRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       
       // Fallback to JWT claims if database lookup fails
       if (!userRole && req.user.user_metadata?.role) {
@@ -75,6 +87,9 @@ function requireRole(...allowedRoles) {
       
       if (!userRole) {
         logger.warn('User role not found', { userId: req.user.id });
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:77',message:'User role not found',data:{userId:req.user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         return res.status(403).json({ error: 'User role not found. Please ensure your profile exists in the Supabase profiles table.' });
       }
       
@@ -85,6 +100,9 @@ function requireRole(...allowedRoles) {
           allowedRoles,
           path: req.path
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:82',message:'Access denied',data:{userRole,allowedRoles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+        // #endregion
         return res.status(403).json({
           error: 'Insufficient permissions',
           required: allowedRoles,
@@ -93,9 +111,15 @@ function requireRole(...allowedRoles) {
       }
       
       req.userRole = userRole;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:95',message:'RBAC success, calling next',data:{userRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       next();
     } catch (error) {
       logger.error('RBAC check failed', { error: error.message });
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:98',message:'RBAC error caught',data:{error:error.message,errorStack:error.stack?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+      // #endregion
       res.status(500).json({ error: 'Failed to verify permissions' });
     }
   };

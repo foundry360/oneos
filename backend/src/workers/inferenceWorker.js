@@ -2,6 +2,8 @@ const db = require('../config/database');
 const pubsub = require('../config/pubsub');
 const aiService = require('../services/aiService');
 const logger = require('../utils/logger');
+const ledgerService = require('../services/ledgerService');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 // Process AI inference tasks
@@ -48,16 +50,67 @@ async function processInferenceTask(data, attributes) {
       ['completed', JSON.stringify(result.result), result.inputTokens, result.outputTokens, inferenceId]
     );
 
+    // Compute inference completion hash for blockchain
+    const inferenceHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({
+        inferenceId,
+        status: 'completed',
+        result: result.result,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        timestamp: new Date().toISOString()
+      }))
+      .digest('hex');
+
+    // Store AI inference completion in blockchain ledger
+    try {
+      await ledgerService.storeInferenceEntry(
+        inferenceId,
+        inferenceHash,
+        {
+          tokenizedDataId,
+          modelName,
+          inferenceType,
+          status: 'completed',
+          result: result.result,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store AI inference completion in ledger', { error: ledgerError.message });
+      // Don't fail the request if ledger write fails, but log it
+    }
+
     logger.info('Inference completed', { inferenceId, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
 
     // Create review task for human review
+    const reviewTaskId = uuidv4();
     await db.query(
       `INSERT INTO review_tasks (id, inference_id, task_type, priority, status)
        VALUES ($1, $2, $3, $4, $5)`,
-      [uuidv4(), inferenceId, 'quality_review', 'medium', 'pending']
+      [reviewTaskId, inferenceId, 'quality_review', 'medium', 'pending']
     );
 
-    logger.info('Review task created for inference', { inferenceId });
+    // Store review task creation in blockchain ledger
+    try {
+      await ledgerService.storeReviewTaskCreation(
+        reviewTaskId,
+        {
+          inferenceId,
+          taskType: 'quality_review',
+          priority: 'medium',
+          status: 'pending',
+          createdBy: 'system'
+        }
+      );
+    } catch (ledgerError) {
+      logger.error('Failed to store review task creation in ledger', { error: ledgerError.message });
+      // Don't fail the request if ledger write fails, but log it
+    }
+
+    logger.info('Review task created for inference', { inferenceId, reviewTaskId });
 
   } catch (error) {
     logger.error('Inference task failed', { error: error.message, stack: error.stack, data });

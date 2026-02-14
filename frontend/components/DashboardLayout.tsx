@@ -38,7 +38,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, Database, ClipboardCheck, ShieldCheck } from 'lucide-react';
+import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -236,11 +236,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <HStack spacing={0} gap={0}>
           <IconButton
             aria-label="Toggle Fullscreen"
-            icon={isFullscreen ? <Minimize2 size={20} /> : <Fullscreen size={20} />}
+            icon={isFullscreen ? <Minimize2 size={20} style={{ filter: 'none' }} /> : <Fullscreen size={20} style={{ filter: 'none' }} />}
             size="md"
             variant="ghost"
             color="gray.600"
-            _hover={{ bg: 'gray.100', color: 'blue.600' }}
+            border="none"
+            _hover={{ bg: 'gray.100', color: 'blue.600', border: 'none' }}
             _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
             _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
             _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
@@ -257,11 +258,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           />
           <IconButton
             aria-label="Open Settings"
-            icon={<Settings size={20} />}
+            icon={<Settings size={20} style={{ filter: 'none' }} />}
             size="md"
             variant="ghost"
             color="gray.600"
-            _hover={{ bg: 'gray.100', color: 'blue.600' }}
+            border="none"
+            _hover={{ bg: 'gray.100', color: 'blue.600', border: 'none' }}
             _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
             _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
             _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
@@ -321,11 +323,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/files" isCollapsed={isCollapsed} icon={<FileText size={20} />}>
               Files
             </NavLink>
-            <NavLink href="/tokenized" isCollapsed={isCollapsed} icon={<Database size={20} />}>
-              Tokenized Data
-            </NavLink>
             <NavLink href="/reviews" isCollapsed={isCollapsed} icon={<ClipboardCheck size={20} />}>
               Review Tasks
+            </NavLink>
+            <NavLink href="/blockchain" isCollapsed={isCollapsed} icon={<Blocks size={20} />}>
+              Blockchain
             </NavLink>
             <Box mt="auto" pt={4} borderTop="1px solid" borderColor="gray.200">
               <Box 
@@ -336,7 +338,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 <IconButton
                   aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                  icon={isCollapsed ? <PanelRightOpen size={20} /> : <PanelLeftClose size={20} />}
+                  icon={isCollapsed ? <PanelRightOpen size={20} style={{ filter: 'none' }} /> : <PanelLeftClose size={20} style={{ filter: 'none' }} />}
                   onClick={toggleSidebar}
                   onMouseDown={(e) => e.preventDefault()}
                   size="sm"

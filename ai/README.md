@@ -21,3 +21,6 @@ To use real Vertex AI services:
 3. Update `backend/src/services/aiService.js` to use actual Vertex AI clients
 4. Configure authentication (service account key or Workload Identity)
 
+
+
+

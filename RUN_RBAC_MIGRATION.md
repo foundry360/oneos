@@ -143,3 +143,6 @@ After successful migration:
 - Run `db/rbac_verification.sql` to verify everything is set up correctly
 - See `AUTH_SETUP.md` for authentication troubleshooting
 
+
+
+

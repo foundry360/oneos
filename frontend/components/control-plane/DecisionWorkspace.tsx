@@ -28,6 +28,7 @@ interface DecisionWorkspaceProps {
   onStatusFilterChange: (status: DecisionStatus | null) => void;
   riskFilter: RiskLevel | null;
   onRiskFilterChange: (risk: RiskLevel | null) => void;
+  isJudgmentPanelCollapsed?: boolean;
 }
 
 export default function DecisionWorkspace({
@@ -40,6 +41,7 @@ export default function DecisionWorkspace({
   onStatusFilterChange,
   riskFilter,
   onRiskFilterChange,
+  isJudgmentPanelCollapsed = false,
 }: DecisionWorkspaceProps) {
   const [keyboardIndex, setKeyboardIndex] = useState<number>(-1);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -263,7 +265,8 @@ export default function DecisionWorkspace({
 
   return (
     <Box
-      width="55%"
+      width={isJudgmentPanelCollapsed ? "calc(85% - 64px)" : "55%"}
+      transition="width 0.2s ease"
       bg="white"
       display="flex"
       flexDirection="column"
@@ -280,8 +283,12 @@ export default function DecisionWorkspace({
         py={5}
         borderBottom="1px solid"
         borderColor="gray.200"
+        minH="48px"
+        h="48px"
+        display="flex"
+        alignItems="center"
       >
-        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em">
+        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em" lineHeight="1.2">
           Decision Context
         </Text>
       </Box>
@@ -290,8 +297,6 @@ export default function DecisionWorkspace({
       <Box
         px={8}
         py={3}
-        borderBottom="1px solid"
-        borderColor="gray.200"
         bg="white"
       >
         <HStack spacing={3} alignItems="center" flex={1}>
@@ -307,8 +312,13 @@ export default function DecisionWorkspace({
               display="flex"
               alignItems="center"
               zIndex={1}
+              bg="transparent"
+              border="none"
+              _hover={{ bg: 'transparent', border: 'none' }}
+              _focus={{ bg: 'transparent', border: 'none', boxShadow: 'none', outline: 'none' }}
+              _active={{ bg: 'transparent', border: 'none' }}
             >
-              <Search size={14} />
+              <Search size={14} style={{ filter: 'none' }} />
             </Box>
             <Input
               placeholder="Search decisions..."
@@ -324,7 +334,8 @@ export default function DecisionWorkspace({
               pl={9}
               pr={3}
               py={1.5}
-              h="auto"
+              h="32px"
+              lineHeight="1"
               _hover={{
                 border: '1px solid',
                 borderColor: 'gray.400',
