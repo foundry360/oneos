@@ -246,14 +246,16 @@ services:
     image: governance-ledger:1.0
     container_name: chaincode-governance-ledger
     environment:
-      - CHAINCODE_SERVER_ADDRESS=0.0.0.0:9999
+      - CHAINCODE_SERVER_ADDRESS=chaincode-governance-ledger:9999
       - CHAINCODE_ID=governance-ledger:1.0
       - CORE_CHAINCODE_ID_NAME=governance-ledger:1.0
+      - CORE_PEER_ADDRESS=peer0.org1.example.com:7052
     ports:
       - "9999:9999"
     networks:
       - default
     command: node server.js
+    restart: unless-stopped
 
   # Hyperledger Explorer
   explorer:
@@ -270,6 +272,7 @@ services:
       - LOG_CONSOLE_STDOUT=true
       - DISCOVERY_AS_LOCALHOST=false
       - PORT=8080
+      - SYNC_TYPE=hybrid
     ports:
       - "8080:8080"
     volumes:
@@ -286,6 +289,7 @@ services:
         condition: service_started
       fabric-orderer:
         condition: service_started
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 30s
