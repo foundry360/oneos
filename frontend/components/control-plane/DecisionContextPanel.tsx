@@ -32,24 +32,34 @@ import {
   ModalFooter,
   ModalCloseButton,
   HStack,
+  IconButton,
 } from '@chakra-ui/react';
 import { Decision, DecisionAction, RiskLevel } from './types';
 import { useState } from 'react';
-import { ClipboardCheck, ChevronsUp, ChevronDown } from 'lucide-react';
+import { ClipboardCheck, ChevronsUp, ChevronDown, PanelLeftClose, PanelRightOpen, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface DecisionContextPanelProps {
   decision: Decision | null;
   onClose: () => void;
   onAction: (action: DecisionAction, justification: string) => void;
+  onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
 export default function DecisionContextPanel({
   decision,
   onClose,
   onAction,
+  onCollapseChange,
 }: DecisionContextPanelProps) {
   const [justification, setJustification] = useState('');
   const [pendingAction, setPendingAction] = useState<DecisionAction | null>(null);
+  const [isJudgmentExpanded, setIsJudgmentExpanded] = useState(true);
+  
+  const handleToggle = () => {
+    const newState = !isJudgmentExpanded;
+    setIsJudgmentExpanded(newState);
+    onCollapseChange?.(!newState); // Pass collapsed state (inverse of expanded)
+  };
   const { isOpen, onOpen, onClose: onCloseModal } = useDisclosure();
 
   const handleActionClick = (action: DecisionAction) => {
@@ -145,56 +155,89 @@ export default function DecisionContextPanel({
 
   return (
     <Box
-      width="30%"
-      bg="white"
+      width={isJudgmentExpanded ? "30%" : "64px"}
+      bg={isJudgmentExpanded ? "white" : "gray.50"}
       borderLeft="1px solid"
       borderColor="gray.200"
       height="100%"
       display="flex"
       flexDirection="column"
       overflowY="auto"
+      transition="width 0.2s ease"
     >
       {/* Header - Always visible */}
       <Box
-        px={8}
+        px={isJudgmentExpanded ? 8 : 0}
         py={5}
         borderBottom="1px solid"
         borderColor="gray.200"
         display="flex"
-        justifyContent="space-between"
+        justifyContent={isJudgmentExpanded ? "space-between" : "center"}
         alignItems="center"
         position="sticky"
         top={0}
-        bg="white"
+        bg={isJudgmentExpanded ? "white" : "gray.50"}
         zIndex={1}
+        minW="64px"
+        minH="48px"
+        h="48px"
       >
-        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em">
-          Judgment
-        </Text>
+        <HStack spacing={2} alignItems="center" h="100%" flex={1} justifyContent={isJudgmentExpanded ? "space-between" : "center"}>
+          {isJudgmentExpanded && (
+            <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em" lineHeight="1.2">
+              Judgment
+            </Text>
+          )}
+          <Box
+            as="button"
+            onClick={handleToggle}
+            cursor="pointer"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            color="gray.600"
+            _hover={{ color: 'gray.900' }}
+            aria-label={isJudgmentExpanded ? 'Collapse judgment' : 'Expand judgment'}
+            bg="transparent"
+            border="none"
+            p={0}
+            h="100%"
+            _focus={{ outline: 'none', boxShadow: 'none' }}
+            ml={isJudgmentExpanded ? "auto" : 0}
+          >
+            {isJudgmentExpanded ? (
+              <ChevronRight size={16} style={{ filter: 'none' }} />
+            ) : (
+              <ChevronLeft size={16} style={{ filter: 'none' }} />
+            )}
+          </Box>
+        </HStack>
       </Box>
 
       {!decision ? (
         /* Empty State */
-        <Box
-          flex="1"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          px={8}
-          py={12}
-        >
-          <Box mb={4} color="gray.400">
-            <ClipboardCheck size={48} style={{ color: '#9CA3AF' }} />
+        isJudgmentExpanded && (
+          <Box
+            flex="1"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            px={8}
+            py={12}
+          >
+            <Box mb={4} color="gray.400">
+              <ClipboardCheck size={48} style={{ color: '#9CA3AF' }} />
+            </Box>
+            <Text fontSize="sm" color="gray.500" textAlign="center" maxW="200px">
+              Select a decision to view details
+            </Text>
           </Box>
-          <Text fontSize="sm" color="gray.500" textAlign="center" maxW="200px">
-            Select a decision to view details
-          </Text>
-        </Box>
+        )
       ) : (
         /* Content */
-
-        <VStack align="stretch" spacing={0} flex="1" px={8} py={8}>
+        isJudgmentExpanded && (
+          <VStack align="stretch" spacing={0} flex="1" px={8} py={8}>
           {/* Decision ID and Risk */}
           <HStack spacing={3} mb={4} alignItems="center">
             <Text fontSize="lg" fontWeight="600" color="gray.900">
@@ -365,6 +408,7 @@ export default function DecisionContextPanel({
             </Box>
           </Box>
         </VStack>
+        )
       )}
       
       {/* Confirmation Modal for Destructive Actions */}

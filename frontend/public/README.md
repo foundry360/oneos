@@ -45,3 +45,6 @@ public/
 - Next.js automatically optimizes images when using the `Image` component
 - For better organization, consider creating subfolders like `images/`, `icons/`, etc.
 
+
+
+

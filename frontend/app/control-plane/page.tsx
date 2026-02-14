@@ -32,6 +32,7 @@ export default function ControlPlanePage() {
   const [selectedScope, setSelectedScope] = useState<DecisionScope | null>(null);
   const [selectedActionMode, setSelectedActionMode] = useState<ActionMode | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<Decision | null>(null);
+  const [isJudgmentPanelCollapsed, setIsJudgmentPanelCollapsed] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<DecisionStatus | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel | null>(null);
@@ -213,36 +214,42 @@ export default function ControlPlanePage() {
             <HStack spacing={2} flex={1} justify="flex-end">
               <IconButton
                 aria-label="Share decision"
-                icon={<Share2 size={18} />}
+                icon={<Share2 size={18} style={{ filter: 'none' }} />}
                 size="sm"
                 variant="ghost"
                 color="gray.600"
-                _hover={{ bg: 'gray.100', color: 'gray.900' }}
-                _focus={{ boxShadow: 'none', outline: 'none' }}
+                border="none"
+                _hover={{ bg: 'gray.100', color: 'gray.900', border: 'none' }}
+                _focus={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                _active={{ border: 'none' }}
                 onClick={handleShare}
                 isDisabled={!selectedDecision}
                 opacity={selectedDecision ? 1 : 0.5}
               />
               <IconButton
                 aria-label="Download decision"
-                icon={<Download size={18} />}
+                icon={<Download size={18} style={{ filter: 'none' }} />}
                 size="sm"
                 variant="ghost"
                 color="gray.600"
-                _hover={{ bg: 'gray.100', color: 'gray.900' }}
-                _focus={{ boxShadow: 'none', outline: 'none' }}
+                border="none"
+                _hover={{ bg: 'gray.100', color: 'gray.900', border: 'none' }}
+                _focus={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                _active={{ border: 'none' }}
                 onClick={handleDownload}
                 isDisabled={!selectedDecision}
                 opacity={selectedDecision ? 1 : 0.5}
               />
               <IconButton
                 aria-label="Expand judgment"
-                icon={<Maximize2 size={18} />}
+                icon={<Maximize2 size={18} style={{ filter: 'none' }} />}
                 size="sm"
                 variant="ghost"
                 color="gray.600"
-                _hover={{ bg: 'gray.100', color: 'gray.900' }}
-                _focus={{ boxShadow: 'none', outline: 'none' }}
+                border="none"
+                _hover={{ bg: 'gray.100', color: 'gray.900', border: 'none' }}
+                _focus={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                _active={{ border: 'none' }}
                 onClick={onJudgmentModalOpen}
                 isDisabled={!selectedDecision}
                 opacity={selectedDecision ? 1 : 0.5}
@@ -282,6 +289,7 @@ export default function ControlPlanePage() {
           onStatusFilterChange={setStatusFilter}
           riskFilter={riskFilter}
           onRiskFilterChange={setRiskFilter}
+          isJudgmentPanelCollapsed={isJudgmentPanelCollapsed}
         />
 
         {/* Panel 3: Context & Action Panel (Right) */}
@@ -289,6 +297,7 @@ export default function ControlPlanePage() {
           decision={selectedDecision}
           onClose={() => setSelectedDecision(null)}
           onAction={handleAction}
+          onCollapseChange={setIsJudgmentPanelCollapsed}
         />
       </Box>
 

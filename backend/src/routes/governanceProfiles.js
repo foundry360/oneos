@@ -15,6 +15,12 @@ const router = express.Router();
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    logger.error('Validation errors', { 
+      errors: errors.array(), 
+      body: req.body, 
+      params: req.params,
+      url: req.url 
+    });
     return res.status(400).json({ errors: errors.array() });
   }
   next();
@@ -27,8 +33,26 @@ const validate = (req, res, next) => {
  */
 router.get(
   '/',
+  (req, res, next) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:34',message:'GET / route entry',data:{url:req.url,method:req.method,hasAuthHeader:!!req.headers.authorization},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    next();
+  },
   authenticate,
+  (req, res, next) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:37',message:'After authenticate middleware',data:{hasUser:!!req.user,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    next();
+  },
   requireAdminOrGovernance,
+  (req, res, next) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:38',message:'After requireAdminOrGovernance',data:{hasUser:!!req.user,userId:req.user?.id,userRole:req.userRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    next();
+  },
   auditLog,
   [
     query('domain').optional().isString(),
@@ -39,6 +63,9 @@ router.get(
   ],
   validate,
   async (req, res) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:47',message:'GET / route handler entry',data:{filters:req.query},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       const filters = {
         domain: req.query.domain,
@@ -47,11 +74,21 @@ router.get(
         limit: req.query.limit ? parseInt(req.query.limit) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset) : undefined
       };
-      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:57',message:'Calling getProfiles',data:{filters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       const profiles = await governanceProfileService.getProfiles(filters);
-      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:59',message:'getProfiles success',data:{profileCount:profiles?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       res.json({ profiles });
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:60',message:'Response sent',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'governanceProfiles.js:61',message:'GET / route error',data:{error:error.message,errorCode:error.code,errorName:error.name,stack:error.stack?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       logger.error('Failed to list profiles', { error: error.message, stack: error.stack });
       
       // Provide more helpful error messages
@@ -488,13 +525,21 @@ router.post(
   authenticate,
   requireAdmin,
   auditLog,
+  (req, res, next) => {
+    logger.info('Export request received', { 
+      profileId: req.params.id, 
+      body: req.body,
+      userId: req.user?.id 
+    });
+    next();
+  },
   [
     param('id').isUUID(),
     body('format').isIn(['pdf', 'json']).withMessage('Format must be pdf or json'),
     body('scope').isIn(['this_version']).withMessage('Scope must be this_version'),
     body('justification').isString().notEmpty().withMessage('Justification is required'),
-    body('redactionLevel').optional().isIn(['none', 'partial', 'full']),
-    body('watermarkLabel').optional().isString(),
+    body('redactionLevel').optional({ nullable: true, checkFalsy: true }).isIn(['none', 'partial', 'full']),
+    body('watermarkLabel').optional({ nullable: true, checkFalsy: true }).isString(),
   ],
   validate,
   async (req, res) => {

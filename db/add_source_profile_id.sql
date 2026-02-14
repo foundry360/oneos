@@ -10,3 +10,6 @@ CREATE INDEX IF NOT EXISTS idx_governance_profiles_source_profile_id ON governan
 -- Add comment
 COMMENT ON COLUMN governance_profiles.source_profile_id IS 'ID of the profile that was cloned to create this version (for versioning history)';
 
+
+
+

@@ -161,8 +161,13 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                 display="flex"
                 alignItems="center"
                 zIndex={1}
+                bg="transparent"
+                border="none"
+                _hover={{ bg: 'transparent', border: 'none' }}
+                _focus={{ bg: 'transparent', border: 'none', boxShadow: 'none', outline: 'none' }}
+                _active={{ bg: 'transparent', border: 'none' }}
               >
-                <Search size={14} />
+                <Search size={14} style={{ filter: 'none' }} />
               </Box>
               <Input
                 placeholder="Search profiles..."

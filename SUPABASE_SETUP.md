@@ -123,3 +123,6 @@ You can test authentication by:
    curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3001/api/files
    ```
 
+
+
+

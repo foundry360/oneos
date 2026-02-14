@@ -69,3 +69,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 4. Backend can verify role from JWT claims when using service role key
 -- ============================================================================
 
+
+
+

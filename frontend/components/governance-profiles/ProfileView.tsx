@@ -44,7 +44,7 @@ import {
   Th,
   Td,
 } from '@chakra-ui/react';
-import { CheckCircle, XCircle, AlertTriangle, Eye, History, Check, X, FolderOutput, Copy, Download, Archive, CopyCheck, ChevronDown, SquarePen, ScanEye } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Eye, History, Check, X, FolderOutput, Copy, Download, Archive, CopyCheck, ChevronDown, SquarePen, ScanEye, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGovernanceProfiles, GovernanceProfile, AuditEntry } from '@/hooks/useGovernanceProfiles';
@@ -55,9 +55,17 @@ interface ProfileViewProps {
   onClose: () => void;
   onEdit?: () => void;
   onRefresh?: () => void;
+  onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
-export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdmin = false, onCreateNewVersion }: ProfileViewProps) {
+export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdmin = false, onCreateNewVersion, onCollapseChange }: ProfileViewProps) {
+  const [isHighlightsExpanded, setIsHighlightsExpanded] = useState(true);
+  
+  const handleToggle = () => {
+    const newState = !isHighlightsExpanded;
+    setIsHighlightsExpanded(newState);
+    onCollapseChange?.(!newState); // Pass collapsed state (inverse of expanded)
+  };
   const router = useRouter();
   const { activateProfile, archiveProfile, fetchAuditHistory, exportProfile, createNewVersion, updateProfile } = useGovernanceProfiles();
   const [auditHistory, setAuditHistory] = useState<AuditEntry[]>([]);
@@ -486,44 +494,82 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
   };
 
   return (
-    <Box height="100%" display="flex" flexDirection="column">
+    <Box 
+      height="100%" 
+      display="flex" 
+      flexDirection="column"
+      width={isHighlightsExpanded ? "100%" : "64px"}
+      transition="width 0.2s ease"
+    >
       {/* Header - Always visible */}
       <Box
-        px={8}
+        px={isHighlightsExpanded ? 8 : 0}
         py={5}
         borderBottom="1px solid"
         borderColor="gray.200"
         display="flex"
-        justifyContent="space-between"
+        justifyContent={isHighlightsExpanded ? "space-between" : "center"}
         alignItems="center"
         position="sticky"
         top={0}
-        bg="white"
+        bg={isHighlightsExpanded ? "white" : "gray.50"}
         zIndex={1}
+        minH="48px"
+        h="48px"
       >
-        <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em">
-          Profile Highlights
-        </Text>
+        <HStack spacing={2} alignItems="center" h="100%" flex={1} justifyContent={isHighlightsExpanded ? "space-between" : "center"}>
+          {isHighlightsExpanded && (
+            <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em" lineHeight="1.2">
+              Profile Highlights
+            </Text>
+          )}
+          <Box
+            as="button"
+            onClick={handleToggle}
+            cursor="pointer"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            color="gray.600"
+            _hover={{ color: 'gray.900' }}
+            aria-label={isHighlightsExpanded ? 'Collapse highlights' : 'Expand highlights'}
+            bg="transparent"
+            border="none"
+            p={0}
+            h="100%"
+            _focus={{ outline: 'none', boxShadow: 'none' }}
+            ml={isHighlightsExpanded ? "auto" : 0}
+          >
+            {isHighlightsExpanded ? (
+              <ChevronRight size={16} style={{ filter: 'none' }} />
+            ) : (
+              <ChevronLeft size={16} style={{ filter: 'none' }} />
+            )}
+          </Box>
+        </HStack>
       </Box>
 
       {!profile ? (
         /* Empty State */
-        <Box
-          flex="1"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          px={8}
-          py={12}
-        >
-          <Text fontSize="sm" color="gray.500" textAlign="center" maxW="200px">
-            Select a profile to view details
-          </Text>
-        </Box>
+        isHighlightsExpanded && (
+          <Box
+            flex="1"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            px={8}
+            py={12}
+          >
+            <Text fontSize="sm" color="gray.500" textAlign="center" maxW="200px">
+              Select a profile to view details
+            </Text>
+          </Box>
+        )
       ) : (
         /* Content */
-        <Box flex="1" overflowY="auto" px={8} pt={4} pb={8}>
+        isHighlightsExpanded && (
+          <Box flex="1" overflowY="auto" px={8} pt={4} pb={8}>
           <VStack spacing={2} align="stretch">
         <VStack align="stretch" spacing={4} pt={0} mt={-2}>
           {/* Profile Name */}
@@ -605,8 +651,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                 onClick={handleViewFullPage}
                 p={1.5}
                 borderRadius="md"
-                border="1px solid"
-                borderColor="gray.200"
+                border="none"
+                bg="transparent"
                 _hover={{ bg: 'gray.100' }}
                 transition="all 0.2s"
                 cursor="pointer"
@@ -624,8 +670,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                       onClick={handleCreateNewVersion}
                       p={1.5}
                       borderRadius="md"
-                      border="1px solid"
-                      borderColor="gray.200"
+                      border="none"
+                      bg="transparent"
                       _hover={{ bg: 'gray.100' }}
                       transition="all 0.2s"
                       cursor="pointer"
@@ -643,8 +689,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                     onClick={onExportOpen}
                     p={1.5}
                     borderRadius="md"
-                    border="1px solid"
-                    borderColor="gray.200"
+                    border="none"
+                    bg="transparent"
                     _hover={{ bg: 'gray.100' }}
                     transition="all 0.2s"
                     cursor="pointer"
@@ -660,8 +706,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                       onClick={onArchiveOpen}
                       p={1.5}
                       borderRadius="md"
-                      border="1px solid"
-                      borderColor="gray.200"
+                      border="none"
+                      bg="transparent"
                       _hover={{ bg: 'gray.100' }}
                       transition="all 0.2s"
                       cursor="pointer"
@@ -679,8 +725,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                         onClick={onActivateOpen}
                         p={1.5}
                         borderRadius="md"
-                        border="1px solid"
-                        borderColor="gray.200"
+                        border="none"
+                        bg="transparent"
                         _hover={{ bg: 'gray.100' }}
                         transition="all 0.2s"
                         cursor="pointer"
@@ -698,8 +744,8 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                           onClick={handleEditOpen}
                           p={1.5}
                           borderRadius="md"
-                          border="1px solid"
-                          borderColor="gray.200"
+                          border="none"
+                          bg="transparent"
                           _hover={{ bg: 'gray.100' }}
                           transition="all 0.2s"
                           cursor="pointer"
@@ -958,12 +1004,49 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
             )}
           </Box>
 
-          <Accordion allowToggle defaultIndex={[]}>
-            <AccordionItem border="none">
-              <AccordionButton px={0} py={2} _hover={{ bg: 'transparent' }}>
-                <Box flex="1" textAlign="left">
-                  <Text fontWeight="600">Advanced Configuration</Text>
-                </Box>
+          <Accordion allowToggle defaultIndex={[]} sx={{ '& > *': { border: 'none !important' } }}>
+            <AccordionItem border="none" sx={{ border: 'none !important', borderTop: 'none !important', borderBottom: 'none !important' }}>
+              <AccordionButton 
+                px={0} 
+                py={2} 
+                bg="transparent"
+                border="none"
+                _hover={{ bg: 'transparent', border: 'none' }}
+                _focus={{ bg: 'transparent', border: 'none', boxShadow: 'none' }}
+                _active={{ bg: 'transparent', border: 'none' }}
+                _expanded={{ bg: 'transparent', border: 'none' }}
+                sx={{
+                  border: 'none !important',
+                  backgroundColor: 'transparent !important',
+                  boxShadow: 'none !important',
+                  fontSize: '18px !important',
+                  fontWeight: '600 !important',
+                  fontFamily: 'inherit',
+                  '&:hover': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&:focus': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&:active': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&[aria-expanded="true"]': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                }}
+              >
+                <Text flex="1" textAlign="left" fontSize="lg" fontWeight="600" as="span">
+                  Advanced Configuration
+                </Text>
                 <AccordionIcon />
               </AccordionButton>
               <AccordionPanel pb={4} px={0}>
@@ -1023,12 +1106,49 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
             </Box>
           )}
 
-          <Accordion allowToggle defaultIndex={[]}>
-            <AccordionItem border="none">
-              <AccordionButton px={0} py={2} _hover={{ bg: 'transparent' }}>
-                <Box flex="1" textAlign="left">
-                  <Text fontWeight="600">Versioning</Text>
-                </Box>
+          <Accordion allowToggle defaultIndex={[]} sx={{ '& > *': { border: 'none !important' } }}>
+            <AccordionItem border="none" sx={{ border: 'none !important', borderTop: 'none !important', borderBottom: 'none !important' }}>
+              <AccordionButton 
+                px={0} 
+                py={2} 
+                bg="transparent"
+                border="none"
+                _hover={{ bg: 'transparent', border: 'none' }}
+                _focus={{ bg: 'transparent', border: 'none', boxShadow: 'none' }}
+                _active={{ bg: 'transparent', border: 'none' }}
+                _expanded={{ bg: 'transparent', border: 'none' }}
+                sx={{
+                  border: 'none !important',
+                  backgroundColor: 'transparent !important',
+                  boxShadow: 'none !important',
+                  fontSize: '18px !important',
+                  fontWeight: '600 !important',
+                  fontFamily: 'inherit',
+                  '&:hover': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&:focus': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&:active': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                  '&[aria-expanded="true"]': {
+                    border: 'none !important',
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                  },
+                }}
+              >
+                <Text flex="1" textAlign="left" fontSize="lg" fontWeight="600" as="span">
+                  Versioning
+                </Text>
                 <AccordionIcon />
               </AccordionButton>
               <AccordionPanel pb={4} px={0}>
@@ -1197,6 +1317,28 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
               h="30px" 
               fontSize="xs"
               isDisabled={activateConfirmation !== 'Activate'}
+              aria-label="Activate profile"
+              sx={{
+                border: 'none !important',
+                boxShadow: 'none !important',
+                '&:hover': {
+                  border: 'none !important',
+                  boxShadow: 'none !important',
+                },
+                '&:focus': {
+                  border: 'none !important',
+                  boxShadow: 'none !important',
+                  outline: 'none !important',
+                },
+                '&:active': {
+                  border: 'none !important',
+                  boxShadow: 'none !important',
+                },
+                '&:disabled': {
+                  border: 'none !important',
+                  boxShadow: 'none !important',
+                },
+              }}
             >
               Activate
             </Button>
@@ -1448,7 +1590,16 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                 {/* Advanced options */}
                 <Accordion allowToggle defaultIndex={[]}>
                   <AccordionItem border="none">
-                    <AccordionButton px={0} py={2} _hover={{ bg: 'transparent' }}>
+                    <AccordionButton 
+                      px={0} 
+                      py={2} 
+                      bg="transparent"
+                      border="none"
+                      _hover={{ bg: 'transparent', border: 'none' }}
+                      _focus={{ bg: 'transparent', border: 'none', boxShadow: 'none' }}
+                      _active={{ bg: 'transparent', border: 'none' }}
+                      _expanded={{ bg: 'transparent', border: 'none' }}
+                    >
                       <Box flex="1" textAlign="left">
                         <FormLabel fontSize="sm" fontWeight="600" mb={0}>Advanced Options</FormLabel>
                       </Box>
@@ -2025,6 +2176,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
         </ModalContent>
       </Modal>
         </Box>
+        )
       )}
     </Box>
   );

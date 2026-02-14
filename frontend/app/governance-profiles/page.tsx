@@ -16,6 +16,7 @@ type ViewMode = 'list' | 'view' | 'create' | 'edit';
 export default function GovernanceProfilesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProfile, setSelectedProfile] = useState<GovernanceProfile | null>(null);
+  const [isHighlightsPanelCollapsed, setIsHighlightsPanelCollapsed] = useState(false);
   const { profiles, fetchProfiles, createProfile, updateProfile, fetchProfile } = useGovernanceProfiles();
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
@@ -166,12 +167,13 @@ export default function GovernanceProfilesPage() {
       >
         {/* Panel 1: Profile List (Left - 70%) */}
         <Box
-          width="70%"
+          width={isHighlightsPanelCollapsed ? "calc(100% - 64px)" : "70%"}
           bg="white"
           height="100%"
           display="flex"
           flexDirection="column"
           overflowY="auto"
+          transition="width 0.2s ease"
         >
           <ProfileList
             onSelectProfile={handleSelectProfile}
@@ -181,7 +183,7 @@ export default function GovernanceProfilesPage() {
 
         {/* Panel 2: Profile Details (Right - 30%) */}
         <Box
-          width="30%"
+          width={isHighlightsPanelCollapsed ? "64px" : "30%"}
           bg="white"
           borderLeft="1px solid"
           borderColor="gray.200"
@@ -189,6 +191,7 @@ export default function GovernanceProfilesPage() {
           display="flex"
           flexDirection="column"
           overflowY="auto"
+          transition="width 0.2s ease"
         >
           {viewMode === 'view' && selectedProfile && (
             <ProfileView
@@ -198,6 +201,7 @@ export default function GovernanceProfilesPage() {
               onRefresh={handleRefresh}
               isAdmin={canCreateVersion}
               onCreateNewVersion={handleCreateNewVersion}
+              onCollapseChange={setIsHighlightsPanelCollapsed}
             />
           )}
 

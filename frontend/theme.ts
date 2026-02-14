@@ -108,33 +108,79 @@ const theme = extendTheme({
       baseStyle: {
         h: '30px',
         fontSize: 'xs',
+        border: 'none',
+        boxShadow: 'none',
         _focus: {
           boxShadow: 'none',
           outline: 'none',
           ring: 'none',
           ringOffset: 'none',
+          border: 'none',
         },
         _focusVisible: {
           boxShadow: 'none',
           outline: 'none',
           ring: 'none',
           ringOffset: 'none',
+          border: 'none',
+        },
+        _hover: {
+          boxShadow: 'none',
+          border: 'none',
+        },
+        _active: {
+          boxShadow: 'none',
+          border: 'none',
+        },
+      },
+      variants: {
+        solid: {
+          border: 'none',
+          boxShadow: 'none',
+          _hover: {
+            border: 'none',
+            boxShadow: 'none',
+          },
+          _focus: {
+            border: 'none',
+            boxShadow: 'none',
+          },
+          _active: {
+            border: 'none',
+            boxShadow: 'none',
+          },
         },
       },
     },
     IconButton: {
       baseStyle: {
+        border: 'none',
         _focus: {
           boxShadow: 'none',
           outline: 'none',
           ring: 'none',
           ringOffset: 'none',
+          border: 'none',
         },
         _focusVisible: {
           boxShadow: 'none',
           outline: 'none',
           ring: 'none',
           ringOffset: 'none',
+          border: 'none',
+        },
+        _hover: {
+          boxShadow: 'none',
+          border: 'none',
+        },
+        _active: {
+          boxShadow: 'none',
+          border: 'none',
+        },
+        '& svg': {
+          filter: 'none !important',
+          textShadow: 'none !important',
+          boxShadow: 'none !important',
         },
       },
     },
@@ -168,6 +214,59 @@ const theme = extendTheme({
           bg: 'blue.50',
           boxShadow: 'none',
         },
+      },
+    },
+    Accordion: {
+      baseStyle: {
+        container: {
+          border: 'none',
+        },
+      },
+    },
+    AccordionItem: {
+      baseStyle: {
+        border: 'none',
+        borderTop: 'none',
+        borderBottom: 'none',
+        _first: {
+          borderTop: 'none',
+        },
+        _last: {
+          borderBottom: 'none',
+        },
+      },
+    },
+    AccordionButton: {
+      baseStyle: {
+        border: 'none !important',
+        bg: 'transparent !important',
+        boxShadow: 'none !important',
+        _hover: {
+          border: 'none !important',
+          bg: 'transparent !important',
+          boxShadow: 'none !important',
+        },
+        _focus: {
+          border: 'none !important',
+          bg: 'transparent !important',
+          boxShadow: 'none !important',
+        },
+        _active: {
+          border: 'none !important',
+          bg: 'transparent !important',
+          boxShadow: 'none !important',
+        },
+        _expanded: {
+          border: 'none !important',
+          bg: 'transparent !important',
+          boxShadow: 'none !important',
+        },
+      },
+    },
+    Code: {
+      baseStyle: {
+        bg: 'gray.100',
+        color: 'gray.800',
       },
     },
   },

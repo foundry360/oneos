@@ -35,3 +35,6 @@ SELECT
 FROM governance_profiles
 WHERE status NOT IN ('draft', 'active', 'archived');
 
+
+
+

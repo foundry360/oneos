@@ -133,3 +133,46 @@ button[class*="chakra-modal__close-btn"]:active {
   background-color: #b3d8ff !important;
 }
 
+/* Remove shadows from icon SVGs in buttons only */
+button svg,
+[role="button"] svg,
+button[aria-label] svg {
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  drop-shadow: none !important;
+}
+
+/* Remove borders from IconButtons */
+button[aria-label="Toggle Fullscreen"],
+button[aria-label="Open Settings"],
+button[aria-label*="sidebar"],
+button[aria-label="Share decision"],
+button[aria-label="Download decision"],
+button[aria-label="Expand judgment"] {
+  border: none !important;
+}
+
+/* Remove borders and backgrounds from AccordionButtons and AccordionItems */
+button[role="button"][aria-expanded],
+[role="button"][aria-expanded],
+button[class*="chakra-accordion__button"],
+[class*="chakra-accordion__button"] {
+  border: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Remove borders from AccordionItems */
+[class*="chakra-accordion__item"] {
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+/* Remove borders and shadows from Activate button in modal */
+button[aria-label="Activate profile"] {
+  border: none !important;
+  box-shadow: none !important;
+}
+
