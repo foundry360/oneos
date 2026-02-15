@@ -1,7 +1,6 @@
 const db = require('../config/database');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const fabricService = require('./fabricService');
 
 /**
  * Ledger Simulator Service
@@ -67,36 +66,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            profileId,
-            action,
-            versionHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('Ledger entry stored on blockchain', {
-            profileId,
-            action,
-            versionHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        // Don't fail the request if blockchain write fails
-        logger.error('Failed to store entry on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          profileId,
-          action
-        });
-      }
       
       return {
         entryId,
@@ -214,37 +183,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            reviewTaskId,
-            action,
-            decisionHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              decision,
-              ...metadata
-            }
-          );
-          logger.info('Review decision ledger entry stored on blockchain', {
-            reviewTaskId,
-            action,
-            decisionHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        // Don't fail the request if blockchain write fails
-        logger.error('Failed to store review decision on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          reviewTaskId,
-          action
-        });
-      }
       
       return {
         entryId,
@@ -315,34 +253,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            dataId,
-            'TOKENIZED_DATA_STORED',
-            tokenizedHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('Tokenized data ledger entry stored on blockchain', {
-            dataId,
-            tokenizedHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        // Don't fail the request if blockchain write fails
-        logger.error('Failed to store tokenized data on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          dataId
-        });
-      }
       
       return {
         entryId,
@@ -424,40 +334,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            exportData.profile_id,
-            'PROFILE_EXPORTED',
-            exportData.artifact_hash,
-            {
-              profile_version: exportData.profile_version,
-              export_format: exportData.export_format,
-              justification: exportData.justification,
-              exported_by: exportData.exported_by,
-              artifact_reference: exportData.artifact_reference,
-              redaction_level: exportData.redaction_level,
-              watermark_label: exportData.watermark_label,
-              entry_hash: entryHash,
-              entry_id: entryId
-            }
-          );
-          logger.info('Export ledger entry stored on blockchain', {
-            profileId: exportData.profile_id,
-            artifactHash: exportData.artifact_hash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        // Don't fail the export if blockchain write fails
-        logger.error('Failed to store export entry on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          profileId: exportData.profile_id
-        });
-      }
       
       return {
         entryId,
@@ -522,33 +398,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            fileId,
-            'FILE_UPLOADED',
-            fileHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('File upload ledger entry stored on blockchain', {
-            fileId,
-            fileHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        logger.error('Failed to store file upload on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          fileId
-        });
-      }
       
       return {
         entryId,
@@ -616,33 +465,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            fileId,
-            'FILE_DELETED',
-            deletionHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('File deletion ledger entry stored on blockchain', {
-            fileId,
-            deletionHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        logger.error('Failed to store file deletion on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          fileId
-        });
-      }
       
       return {
         entryId,
@@ -707,33 +529,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            profileId,
-            'PROFILE_UPDATED',
-            updateHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('Profile update ledger entry stored on blockchain', {
-            profileId,
-            updateHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        logger.error('Failed to store profile update on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          profileId
-        });
-      }
       
       return {
         entryId,
@@ -800,34 +595,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            inferenceId,
-            action,
-            inferenceHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('AI inference ledger entry stored on blockchain', {
-            inferenceId,
-            action,
-            inferenceHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        logger.error('Failed to store AI inference on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          inferenceId
-        });
-      }
       
       return {
         entryId,
@@ -895,33 +662,6 @@ class LedgerService {
         entryHash,
         timestamp
       });
-
-      // Also store on blockchain if available
-      try {
-        if (await fabricService.isAvailable()) {
-          await fabricService.storeLedgerEntry(
-            reviewTaskId,
-            'REVIEW_TASK_CREATED',
-            taskHash,
-            {
-              entry_hash: entryHash,
-              entry_id: entryId,
-              ...metadata
-            }
-          );
-          logger.info('Review task creation ledger entry stored on blockchain', {
-            reviewTaskId,
-            taskHash
-          });
-        } else {
-          logger.warn('Fabric blockchain not available, entry stored in database only');
-        }
-      } catch (blockchainError) {
-        logger.error('Failed to store review task creation on blockchain (non-fatal)', {
-          error: blockchainError.message,
-          reviewTaskId
-        });
-      }
       
       return {
         entryId,
@@ -931,6 +671,89 @@ class LedgerService {
       };
     } catch (error) {
       logger.error('Failed to store review task creation ledger entry', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Store LLM prompt entry in ledger
+   * @param {string} requestId - LLM prompt request ID
+   * @param {string} promptHash - SHA-256 hash of prompt
+   * @param {string} responseHash - SHA-256 hash of response
+   * @param {object} metadata - Additional metadata (modelName, provider, riskLevel, governanceProfileId, tokens, etc.)
+   * @returns {Promise<object>} Ledger entry with hash and timestamp
+   */
+  async storeLLMPromptEntry(requestId, promptHash, responseHash, metadata = {}) {
+    try {
+      const entryId = crypto.randomUUID();
+      const timestamp = new Date().toISOString();
+      
+      const entryData = {
+        requestId,
+        action: 'LLM_PROMPT_PROCESSED',
+        promptHash,
+        responseHash,
+        timestamp,
+        metadata
+      };
+      
+      // Create version hash from prompt and response hashes
+      const versionHash = crypto
+        .createHash('sha256')
+        .update(`${promptHash}:${responseHash}`)
+        .digest('hex');
+      
+      const entryHash = crypto
+        .createHash('sha256')
+        .update(JSON.stringify(entryData))
+        .digest('hex');
+      
+      try {
+        await db.query(
+          `INSERT INTO ledger_entries (id, profile_id, action, version_hash, entry_hash, timestamp, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [
+            entryId,
+            metadata.governanceProfileId || requestId,
+            'LLM_PROMPT_PROCESSED',
+            versionHash,
+            entryHash,
+            timestamp,
+            JSON.stringify({
+              requestId,
+              promptHash,
+              responseHash,
+              modelName: metadata.modelName,
+              provider: metadata.provider,
+              riskLevel: metadata.riskLevel,
+              inputTokens: metadata.inputTokens,
+              outputTokens: metadata.outputTokens,
+              totalTokens: (metadata.inputTokens || 0) + (metadata.outputTokens || 0)
+            })
+          ]
+        );
+      } catch (error) {
+        logger.warn('Ledger entries table not found, logging LLM prompt entry only', { entryData });
+      }
+      
+      logger.info('LLM prompt ledger entry stored', {
+        entryId,
+        requestId,
+        promptHash,
+        responseHash,
+        entryHash,
+        timestamp
+      });
+      
+      return {
+        entryId,
+        entryHash,
+        timestamp,
+        versionHash
+      };
+    } catch (error) {
+      logger.error('Failed to store LLM prompt ledger entry', { error: error.message });
       throw error;
     }
   }

@@ -1649,28 +1649,30 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                             zIndex={10}
                           >
                             <VStack align="stretch" spacing={0}>
-                              {['none', 'partial', 'full'].map((option) => (
-                                <Box
-                                  key={option}
-                                  as="button"
-                                  type="button"
-                                  onClick={() => {
-                                    setRedactionLevel(option);
-                                    setIsRedactionDropdownOpen(false);
-                                  }}
-                                  px={3}
-                                  py={2}
-                                  textAlign="left"
-                                  fontSize="xs"
-                                  color="gray.700"
-                                  bg={redactionLevel === option ? 'gray.100' : 'white'}
-                                  _hover={{ bg: 'gray.50' }}
-                                  borderBottom={option !== 'full' ? '1px solid' : 'none'}
-                                  borderColor="gray.200"
-                                  textTransform="capitalize"
-                                  cursor="pointer"
-                                >
-                                  {option}
+                              {['none', 'partial', 'full'].map((option, index) => (
+                                <Box key={option}>
+                                  {index > 0 && <Divider borderColor="gray.200" />}
+                                  <Box
+                                    as="button"
+                                    type="button"
+                                    onClick={() => {
+                                      setRedactionLevel(option);
+                                      setIsRedactionDropdownOpen(false);
+                                    }}
+                                    px={3}
+                                    py={2}
+                                    textAlign="left"
+                                    fontSize="xs"
+                                    color="gray.700"
+                                    bg={redactionLevel === option ? 'gray.100' : 'white'}
+                                    _hover={{ bg: 'gray.50' }}
+                                    border="none"
+                                    textTransform="capitalize"
+                                    cursor="pointer"
+                                    w="100%"
+                                  >
+                                    {option}
+                                  </Box>
                                 </Box>
                               ))}
                             </VStack>
@@ -1923,28 +1925,30 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                       zIndex={10}
                     >
                       <VStack align="stretch" spacing={0}>
-                        {['required', 'conditional', 'optional'].map((option) => (
-                          <Box
-                            key={option}
-                            as="button"
-                            type="button"
-                            onClick={() => {
-                              setEditFormData({ ...editFormData, human_review_requirement: option as 'required' | 'conditional' | 'optional' });
-                              setIsHumanReviewDropdownOpen(false);
-                            }}
-                            px={3}
-                            py={2}
-                            textAlign="left"
-                            fontSize="sm"
-                            color="gray.700"
-                            bg={editFormData.human_review_requirement === option ? 'gray.100' : 'white'}
-                            _hover={{ bg: 'gray.50' }}
-                            borderBottom={option !== 'optional' ? '1px solid' : 'none'}
-                            borderColor="gray.200"
-                            textTransform="capitalize"
-                            cursor="pointer"
-                          >
-                            {option}
+                        {['required', 'conditional', 'optional'].map((option, index) => (
+                          <Box key={option}>
+                            {index > 0 && <Divider borderColor="gray.200" />}
+                            <Box
+                              as="button"
+                              type="button"
+                              onClick={() => {
+                                setEditFormData({ ...editFormData, human_review_requirement: option as 'required' | 'conditional' | 'optional' });
+                                setIsHumanReviewDropdownOpen(false);
+                              }}
+                              px={3}
+                              py={2}
+                              textAlign="left"
+                              fontSize="sm"
+                              color="gray.700"
+                              bg={editFormData.human_review_requirement === option ? 'gray.100' : 'white'}
+                              _hover={{ bg: 'gray.50' }}
+                              border="none"
+                              textTransform="capitalize"
+                              cursor="pointer"
+                              w="100%"
+                            >
+                              {option}
+                            </Box>
                           </Box>
                         ))}
                       </VStack>

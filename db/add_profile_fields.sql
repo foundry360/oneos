@@ -27,3 +27,6 @@ COMMENT ON COLUMN profiles.avatar_url IS 'URL to user avatar image in Supabase s
 
 
 
+
+
+

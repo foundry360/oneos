@@ -138,30 +138,61 @@ const { authenticate } = require('../middleware/auth');
 
 router.get('/me', authenticate, async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT 
-        u.id, 
-        u.email, 
-        u.email_verified, 
-        u.created_at, 
-        u.last_login, 
-        COALESCE(p.role, 'user') as role,
-        p.display_name,
-        p.avatar_url,
-        p.updated_at
-       FROM users u
-       LEFT JOIN profiles p ON u.id = p.id
-       WHERE u.id = $1`,
-      [req.user.id]
-    );
+    // First, try to get user with optional profile fields
+    // If columns don't exist, fall back to basic query
+    let result;
+    try {
+      result = await db.query(
+        `SELECT 
+          u.id, 
+          u.email, 
+          u.email_verified, 
+          u.created_at, 
+          u.last_login, 
+          COALESCE(p.role, 'user') as role,
+          p.display_name,
+          p.avatar_url,
+          p.updated_at
+         FROM users u
+         LEFT JOIN profiles p ON u.id = p.id
+         WHERE u.id = $1`,
+        [req.user.id]
+      );
+    } catch (columnError) {
+      // If columns don't exist, use basic query without display_name and avatar_url
+      if (columnError.message && columnError.message.includes('column') && columnError.message.includes('does not exist')) {
+        logger.warn('Profile columns missing, using basic query', { error: columnError.message });
+        result = await db.query(
+          `SELECT 
+            u.id, 
+            u.email, 
+            u.email_verified, 
+            u.created_at, 
+            u.last_login, 
+            COALESCE(p.role, 'user') as role,
+            p.updated_at
+           FROM users u
+           LEFT JOIN profiles p ON u.id = p.id
+           WHERE u.id = $1`,
+          [req.user.id]
+        );
+      } else {
+        throw columnError;
+      }
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user: result.rows[0] });
+    const user = result.rows[0];
+    // Ensure display_name and avatar_url are set to null if not present
+    if (user.display_name === undefined) user.display_name = null;
+    if (user.avatar_url === undefined) user.avatar_url = null;
+
+    res.json({ user });
   } catch (error) {
-    logger.error('Get user error', { error: error.message });
+    logger.error('Get user error', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Failed to get user', message: error.message });
   }
 });
