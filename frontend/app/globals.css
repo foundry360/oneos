@@ -176,3 +176,43 @@ button[aria-label="Activate profile"] {
   box-shadow: none !important;
 }
 
+/* Styling for sidebar toggle menu - allow border and border-radius */
+.sidebar-toggle-menu,
+.sidebar-toggle-menu[class*="chakra-menu__menu-list"],
+[class*="chakra-menu__menu-list"].sidebar-toggle-menu {
+  box-shadow: none !important;
+  outline: none !important;
+  background: white !important;
+}
+
+.sidebar-toggle-menu:focus,
+.sidebar-toggle-menu:hover,
+.sidebar-toggle-menu:active,
+.sidebar-toggle-menu[class*="chakra-menu__menu-list"]:focus,
+.sidebar-toggle-menu[class*="chakra-menu__menu-list"]:hover,
+.sidebar-toggle-menu[class*="chakra-menu__menu-list"]:active {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove styling from sidebar toggle menu items */
+.sidebar-toggle-menu [class*="chakra-menu__menuitem"],
+.sidebar-toggle-menu button[role="menuitem"] {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.sidebar-toggle-menu [class*="chakra-menu__menuitem"]:focus,
+.sidebar-toggle-menu [class*="chakra-menu__menuitem"]:hover,
+.sidebar-toggle-menu [class*="chakra-menu__menuitem"]:active,
+.sidebar-toggle-menu button[role="menuitem"]:focus,
+.sidebar-toggle-menu button[role="menuitem"]:hover,
+.sidebar-toggle-menu button[role="menuitem"]:active {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+

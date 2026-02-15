@@ -44,3 +44,6 @@ SELECT
     (SELECT COUNT(*) FROM users) as users_count,
     (SELECT COUNT(*) FROM auth.users WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users')) as supabase_users_count;
 
+
+
+

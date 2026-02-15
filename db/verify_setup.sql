@@ -48,3 +48,6 @@ FROM users u
 LEFT JOIN profiles p ON u.id = p.id
 ORDER BY u.created_at DESC;
 
+
+
+

@@ -40,15 +40,28 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks } from 'lucide-react';
 
+type SidebarMode = 'expanded' | 'collapsed' | 'hover';
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
+
+const SIDEBAR_MODE_KEY = 'sidebar-mode';
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, loading: profileLoading, updateProfile, uploadAvatar } = useProfile(user?.id);
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SIDEBAR_MODE_KEY);
+      if (saved === 'expanded' || saved === 'collapsed' || saved === 'hover') {
+        return saved;
+      }
+    }
+    return 'expanded';
+  });
+  const [isHovered, setIsHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -73,12 +86,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [user, authLoading, router]);
 
-  const toggleSidebar = (e: React.MouseEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.blur();
+  // Persist sidebar mode to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SIDEBAR_MODE_KEY, sidebarMode);
     }
-    setIsCollapsed(!isCollapsed);
+  }, [sidebarMode]);
+
+  const handleSidebarModeChange = (mode: SidebarMode) => {
+    setSidebarMode(mode);
   };
+
+  // Determine if sidebar should be collapsed based on mode and hover state
+  const isCollapsed = sidebarMode === 'collapsed' || (sidebarMode === 'hover' && !isHovered);
 
   const toggleFullscreen = (e: React.MouseEvent) => {
     if (e.currentTarget instanceof HTMLElement) {
@@ -312,6 +332,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           position="relative"
           display="flex"
           flexDirection="column"
+          onMouseEnter={() => sidebarMode === 'hover' && setIsHovered(true)}
+          onMouseLeave={() => sidebarMode === 'hover' && setIsHovered(false)}
         >
           <VStack spacing={1} align="stretch" px={isCollapsed ? 2 : 4} flex={1}>
             <NavLink href="/control-plane" isCollapsed={isCollapsed} icon={<LayoutDashboard size={20} />}>
@@ -336,19 +358,88 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 display="flex"
                 justifyContent={isCollapsed ? 'center' : 'flex-end'}
               >
-                <IconButton
-                  aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                  icon={isCollapsed ? <PanelRightOpen size={20} style={{ filter: 'none' }} /> : <PanelLeftClose size={20} style={{ filter: 'none' }} />}
-                  onClick={toggleSidebar}
-                  onMouseDown={(e) => e.preventDefault()}
-                  size="sm"
-                  variant="ghost"
-                  color="gray.400"
-                  _hover={{ bg: 'gray.100', color: 'gray.500' }}
-                  _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                  _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                  _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                />
+                <Menu>
+                  <MenuButton
+                    as={IconButton}
+                    aria-label="Sidebar options"
+                    icon={isCollapsed ? <PanelRightOpen size={20} style={{ filter: 'none' }} /> : <PanelLeftClose size={20} style={{ filter: 'none' }} />}
+                    onMouseDown={(e) => e.preventDefault()}
+                    size="sm"
+                    variant="ghost"
+                    color="gray.400"
+                    _hover={{ bg: 'gray.100', color: 'gray.500' }}
+                    _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                    _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                    _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                  />
+                  <MenuList
+                    className="sidebar-toggle-menu"
+                    minW="200px"
+                    py={1}
+                    px={0}
+                    border="1px solid"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    boxShadow="none"
+                    bg="white"
+                    _focus={{ boxShadow: 'none', outline: 'none' }}
+                    _hover={{ boxShadow: 'none' }}
+                  >
+                    <MenuItem
+                      onClick={() => handleSidebarModeChange('expanded')}
+                      _focus={{ bg: 'gray.50' }}
+                      _hover={{ bg: 'gray.50' }}
+                      borderRadius={0}
+                    >
+                      <HStack spacing={2} w="100%">
+                        <Box
+                          w="8px"
+                          h="8px"
+                          borderRadius="full"
+                          bg={sidebarMode === 'expanded' ? 'blue.500' : 'transparent'}
+                          flexShrink={0}
+                        />
+                        <Text fontSize="xs">Expanded</Text>
+                      </HStack>
+                    </MenuItem>
+                    <Divider m={0} borderColor="gray.100" />
+                    <MenuItem
+                      onClick={() => handleSidebarModeChange('collapsed')}
+                      _focus={{ bg: 'gray.50' }}
+                      _hover={{ bg: 'gray.50' }}
+                      borderRadius={0}
+                    >
+                      <HStack spacing={2} w="100%">
+                        <Box
+                          w="8px"
+                          h="8px"
+                          borderRadius="full"
+                          bg={sidebarMode === 'collapsed' ? 'blue.500' : 'transparent'}
+                          flexShrink={0}
+                        />
+                        <Text fontSize="xs">Collapsed</Text>
+                      </HStack>
+                    </MenuItem>
+                    <Divider m={0} borderColor="gray.100" />
+                    <MenuItem
+                      onClick={() => handleSidebarModeChange('hover')}
+                      _focus={{ bg: 'gray.50' }}
+                      _hover={{ bg: 'gray.50' }}
+                      borderRadius={0}
+                    >
+                      <HStack spacing={2} w="100%">
+                        <Box
+                          w="8px"
+                          h="8px"
+                          borderRadius="full"
+                          bg={sidebarMode === 'hover' ? 'blue.500' : 'transparent'}
+                          flexShrink={0}
+                        />
+                        <Text fontSize="xs">Hover</Text>
+                      </HStack>
+                    </MenuItem>
+                  </MenuList>
+                </Menu>
               </Box>
             </Box>
           </VStack>

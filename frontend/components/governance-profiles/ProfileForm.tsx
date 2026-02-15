@@ -356,28 +356,30 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                       overflowY="auto"
                     >
                       <VStack align="stretch" spacing={0}>
-                        {getFilteredDomains(domainInputValue).map((option) => (
-                          <Box
-                            key={option.value}
-                            as="button"
-                            type="button"
-                            onClick={() => {
-                              setFormData({ ...formData, domain: option.value });
-                              setDomainInputValue(option.label);
-                              setIsDomainDropdownOpen(false);
-                            }}
-                            px={3}
-                            py={2}
-                            textAlign="left"
-                            fontSize="sm"
-                            color="gray.700"
-                            bg={formData.domain === option.value ? 'gray.50' : 'white'}
-                            _hover={{ bg: 'gray.50' }}
-                            borderBottom={option.value !== getFilteredDomains(domainInputValue)[getFilteredDomains(domainInputValue).length - 1].value ? '1px solid' : 'none'}
-                            borderColor="gray.200"
-                            cursor="pointer"
-                          >
-                            {option.label}
+                        {getFilteredDomains(domainInputValue).map((option, index) => (
+                          <Box key={option.value}>
+                            {index > 0 && <Divider borderColor="gray.200" />}
+                            <Box
+                              as="button"
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, domain: option.value });
+                                setDomainInputValue(option.label);
+                                setIsDomainDropdownOpen(false);
+                              }}
+                              px={3}
+                              py={2}
+                              textAlign="left"
+                              fontSize="sm"
+                              color="gray.700"
+                              bg={formData.domain === option.value ? 'gray.50' : 'white'}
+                              _hover={{ bg: 'gray.50' }}
+                              border="none"
+                              cursor="pointer"
+                              w="100%"
+                            >
+                              {option.label}
+                            </Box>
                           </Box>
                         ))}
                       </VStack>
@@ -467,24 +469,28 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                       zIndex={10}
                     >
                       <VStack align="stretch" spacing={0}>
-                        {humanReviewOptions.map((option) => (
-                          <Box
-                            key={option.value}
-                            as="button"
-                            type="button"
-                            onClick={() => {
-                              setFormData({ ...formData, human_review_requirement: option.value as any });
-                              setIsHumanReviewDropdownOpen(false);
-                            }}
-                            px={3}
-                            py={2}
-                            textAlign="left"
-                            fontSize="sm"
-                            color="gray.700"
-                            _hover={{ bg: 'gray.50' }}
-                            bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
-                          >
-                            {option.label}
+                        {humanReviewOptions.map((option, index) => (
+                          <Box key={option.value}>
+                            {index > 0 && <Divider borderColor="gray.200" />}
+                            <Box
+                              as="button"
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, human_review_requirement: option.value as any });
+                                setIsHumanReviewDropdownOpen(false);
+                              }}
+                              px={3}
+                              py={2}
+                              textAlign="left"
+                              fontSize="sm"
+                              color="gray.700"
+                              _hover={{ bg: 'gray.50' }}
+                              bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
+                              border="none"
+                              w="100%"
+                            >
+                              {option.label}
+                            </Box>
                           </Box>
                         ))}
                       </VStack>
@@ -844,28 +850,30 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                     overflowY="auto"
                   >
                     <VStack align="stretch" spacing={0}>
-                      {getFilteredDomains(domainInputValue).map((option) => (
-                        <Box
-                          key={option.value}
-                          as="button"
-                          type="button"
-                          onClick={() => {
-                            setFormData({ ...formData, domain: option.value });
-                            setDomainInputValue(option.label);
-                            setIsDomainDropdownOpen(false);
-                          }}
-                          px={3}
-                          py={2}
-                          textAlign="left"
-                          fontSize="sm"
-                          color="gray.700"
-                          bg={formData.domain === option.value ? 'gray.50' : 'white'}
-                          _hover={{ bg: 'gray.50' }}
-                          borderBottom={option.value !== getFilteredDomains(domainInputValue)[getFilteredDomains(domainInputValue).length - 1].value ? '1px solid' : 'none'}
-                          borderColor="gray.200"
-                          cursor="pointer"
-                        >
-                          {option.label}
+                      {getFilteredDomains(domainInputValue).map((option, index) => (
+                        <Box key={option.value}>
+                          {index > 0 && <Divider borderColor="gray.200" />}
+                          <Box
+                            as="button"
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, domain: option.value });
+                              setDomainInputValue(option.label);
+                              setIsDomainDropdownOpen(false);
+                            }}
+                            px={3}
+                            py={2}
+                            textAlign="left"
+                            fontSize="sm"
+                            color="gray.700"
+                            bg={formData.domain === option.value ? 'gray.50' : 'white'}
+                            _hover={{ bg: 'gray.50' }}
+                            border="none"
+                            cursor="pointer"
+                            w="100%"
+                          >
+                            {option.label}
+                          </Box>
                         </Box>
                       ))}
                     </VStack>
@@ -942,24 +950,28 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                     zIndex={10}
                   >
                     <VStack align="stretch" spacing={0}>
-                      {humanReviewOptions.map((option) => (
-                        <Box
-                          key={option.value}
-                          as="button"
-                          type="button"
-                          onClick={() => {
-                            setFormData({ ...formData, human_review_requirement: option.value as any });
-                            setIsHumanReviewDropdownOpen(false);
-                          }}
-                          px={3}
-                          py={2}
-                          textAlign="left"
-                          fontSize="sm"
-                          color="gray.700"
-                          _hover={{ bg: 'gray.50' }}
-                          bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
-                        >
-                          {option.label}
+                      {humanReviewOptions.map((option, index) => (
+                        <Box key={option.value}>
+                          {index > 0 && <Divider borderColor="gray.200" />}
+                          <Box
+                            as="button"
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, human_review_requirement: option.value as any });
+                              setIsHumanReviewDropdownOpen(false);
+                            }}
+                            px={3}
+                            py={2}
+                            textAlign="left"
+                            fontSize="sm"
+                            color="gray.700"
+                            _hover={{ bg: 'gray.50' }}
+                            bg={formData.human_review_requirement === option.value ? 'gray.50' : 'white'}
+                            border="none"
+                            w="100%"
+                          >
+                            {option.label}
+                          </Box>
                         </Box>
                       ))}
                     </VStack>

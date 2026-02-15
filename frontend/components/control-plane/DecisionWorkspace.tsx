@@ -13,7 +13,7 @@
 
 'use client';
 
-import { Box, Table, Thead, Tbody, Tr, Th, Td, Input, HStack, Text, Badge, VStack, Menu, MenuButton, MenuList, MenuItem, Button, Tooltip } from '@chakra-ui/react';
+import { Box, Table, Thead, Tbody, Tr, Th, Td, Input, HStack, Text, Badge, VStack, Menu, MenuButton, MenuList, MenuItem, Button, Tooltip, Divider } from '@chakra-ui/react';
 import { Decision, RiskLevel, DecisionStatus } from './types';
 import { useMemo, useState, KeyboardEvent, useEffect } from 'react';
 import { ChevronsUp, ChevronDown, Search, ChevronDown as ChevronDownIcon, Clock, CheckCircle2, XCircle, AlertCircle, CircleArrowUp, BookCheck, Check, X, Info } from 'lucide-react';
@@ -393,7 +393,7 @@ export default function DecisionWorkspace({
               border="1px solid"
               borderColor="gray.300"
               boxShadow="sm"
-              py={1}
+              py={0}
               minW="160px"
             >
               <MenuItem
@@ -402,10 +402,12 @@ export default function DecisionWorkspace({
                 bg={!statusFilter ? 'gray.50' : 'white'}
                 _hover={{ bg: 'gray.50' }}
                 _focus={{ bg: 'gray.50' }}
+                border="none"
               >
                 <Text>All Status</Text>
               </MenuItem>
-              {statusOptions.map((status) => {
+              {statusOptions.length > 0 && <Divider borderColor="gray.200" />}
+              {statusOptions.map((status, index) => {
                 const getStatusDotColor = () => {
                   switch (status) {
                     case 'pending':
@@ -423,24 +425,27 @@ export default function DecisionWorkspace({
                   }
                 };
                 return (
-                  <MenuItem
-                    key={status}
-                    onClick={() => onStatusFilterChange(status)}
-                    fontSize="xs"
-                    bg={statusFilter === status ? 'gray.50' : 'white'}
-                    _hover={{ bg: 'gray.50' }}
-                    _focus={{ bg: 'gray.50' }}
-                  >
-                    <HStack spacing={2}>
-                      <Box
-                        width="6px"
-                        height="6px"
-                        borderRadius="full"
-                        bg={getStatusDotColor()}
-                      />
-                      <Text>{status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}</Text>
-                    </HStack>
-                  </MenuItem>
+                  <Box key={status}>
+                    {index > 0 && <Divider borderColor="gray.200" />}
+                    <MenuItem
+                      onClick={() => onStatusFilterChange(status)}
+                      fontSize="xs"
+                      bg={statusFilter === status ? 'gray.50' : 'white'}
+                      _hover={{ bg: 'gray.50' }}
+                      _focus={{ bg: 'gray.50' }}
+                      border="none"
+                    >
+                      <HStack spacing={2}>
+                        <Box
+                          width="6px"
+                          height="6px"
+                          borderRadius="full"
+                          bg={getStatusDotColor()}
+                        />
+                        <Text>{status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}</Text>
+                      </HStack>
+                    </MenuItem>
+                  </Box>
                 );
               })}
             </MenuList>
@@ -483,7 +488,7 @@ export default function DecisionWorkspace({
               border="1px solid"
               borderColor="gray.300"
               boxShadow="sm"
-              py={1}
+              py={0}
               minW="140px"
             >
               <MenuItem
@@ -492,10 +497,12 @@ export default function DecisionWorkspace({
                 bg={!riskFilter ? 'gray.50' : 'white'}
                 _hover={{ bg: 'gray.50' }}
                 _focus={{ bg: 'gray.50' }}
+                border="none"
               >
                 <Text>All Risk</Text>
               </MenuItem>
-              {riskOptions.map((risk) => {
+              {riskOptions.length > 0 && <Divider borderColor="gray.200" />}
+              {riskOptions.map((risk, index) => {
                 const getRiskDropdownIcon = () => {
                   if (risk === 'high') {
                     return <ChevronsUp size={14} style={{ color: '#DC2626' }} />;
@@ -518,19 +525,22 @@ export default function DecisionWorkspace({
                   }
                 };
                 return (
-                  <MenuItem
-                    key={risk}
-                    onClick={() => onRiskFilterChange(risk)}
-                    fontSize="xs"
-                    bg={riskFilter === risk ? 'gray.50' : 'white'}
-                    _hover={{ bg: 'gray.50' }}
-                    _focus={{ bg: 'gray.50' }}
-                  >
-                    <HStack spacing={2}>
-                      {getRiskDropdownIcon()}
-                      <Text>{risk.charAt(0).toUpperCase() + risk.slice(1)}</Text>
-                    </HStack>
-                  </MenuItem>
+                  <Box key={risk}>
+                    {index > 0 && <Divider borderColor="gray.200" />}
+                    <MenuItem
+                      onClick={() => onRiskFilterChange(risk)}
+                      fontSize="xs"
+                      bg={riskFilter === risk ? 'gray.50' : 'white'}
+                      _hover={{ bg: 'gray.50' }}
+                      _focus={{ bg: 'gray.50' }}
+                      border="none"
+                    >
+                      <HStack spacing={2}>
+                        {getRiskDropdownIcon()}
+                        <Text>{risk.charAt(0).toUpperCase() + risk.slice(1)}</Text>
+                      </HStack>
+                    </MenuItem>
+                  </Box>
                 );
               })}
             </MenuList>
@@ -757,21 +767,24 @@ export default function DecisionWorkspace({
                 >
                   {pageSize}
                 </MenuButton>
-                <MenuList fontSize="xs" minW="70px" py={1}>
-                  {[25, 50, 75].map((size) => (
-                    <MenuItem
-                      key={size}
-                      onClick={() => {
-                        setPageSize(size);
-                        setCurrentPage(1);
-                      }}
-                      fontSize="xs"
-                      bg={pageSize === size ? 'gray.50' : 'white'}
-                      _hover={{ bg: 'gray.50' }}
-                      _focus={{ bg: 'gray.50' }}
-                    >
-                      {size}
-                    </MenuItem>
+                <MenuList fontSize="xs" minW="70px" py={0}>
+                  {[25, 50, 75].map((size, index) => (
+                    <Box key={size}>
+                      {index > 0 && <Divider borderColor="gray.200" />}
+                      <MenuItem
+                        onClick={() => {
+                          setPageSize(size);
+                          setCurrentPage(1);
+                        }}
+                        fontSize="xs"
+                        bg={pageSize === size ? 'gray.50' : 'white'}
+                        _hover={{ bg: 'gray.50' }}
+                        _focus={{ bg: 'gray.50' }}
+                        border="none"
+                      >
+                        {size}
+                      </MenuItem>
+                    </Box>
                   ))}
                 </MenuList>
               </Menu>

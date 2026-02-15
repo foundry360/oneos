@@ -145,3 +145,6 @@ SELECT
     (SELECT COUNT(*) FROM profiles) as profiles_count,
     (SELECT email FROM users WHERE email = 'admin@example.com') as admin_email;
 
+
+
+

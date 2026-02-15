@@ -21,6 +21,7 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Divider,
 } from '@chakra-ui/react';
 import { Search, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -239,7 +240,7 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                 border="1px solid"
                 borderColor="gray.300"
                 boxShadow="sm"
-                py={1}
+                py={0}
                 minW="160px"
               >
                 <MenuItem
@@ -248,20 +249,25 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                   bg={!domainFilter ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
+                  border="none"
                 >
                   <Text>All Domains</Text>
                 </MenuItem>
-                {domains.map((domain) => (
-                  <MenuItem
-                    key={domain}
-                    onClick={() => setDomainFilter(domain)}
-                    fontSize="xs"
-                    bg={domainFilter === domain ? 'gray.50' : 'white'}
-                    _hover={{ bg: 'gray.50' }}
-                    _focus={{ bg: 'gray.50' }}
-                  >
-                    <Text>{domain.toUpperCase()}</Text>
-                  </MenuItem>
+                {domains.length > 0 && <Divider borderColor="gray.200" />}
+                {domains.map((domain, index) => (
+                  <Box key={domain}>
+                    {index > 0 && <Divider borderColor="gray.200" />}
+                    <MenuItem
+                      onClick={() => setDomainFilter(domain)}
+                      fontSize="xs"
+                      bg={domainFilter === domain ? 'gray.50' : 'white'}
+                      _hover={{ bg: 'gray.50' }}
+                      _focus={{ bg: 'gray.50' }}
+                      border="none"
+                    >
+                      <Text>{domain.toUpperCase()}</Text>
+                    </MenuItem>
+                  </Box>
                 ))}
               </MenuList>
             </Menu>
@@ -303,7 +309,7 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                 border="1px solid"
                 borderColor="gray.300"
                 boxShadow="sm"
-                py={1}
+                py={0}
                 minW="140px"
               >
                 <MenuItem
@@ -312,33 +318,40 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                   bg={!statusFilter ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
+                  border="none"
                 >
                   <Text>All Status</Text>
                 </MenuItem>
+                <Divider borderColor="gray.200" />
                 <MenuItem
                   onClick={() => setStatusFilter('draft')}
                   fontSize="xs"
                   bg={statusFilter === 'draft' ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
+                  border="none"
                 >
                   <Text>Draft</Text>
                 </MenuItem>
+                <Divider borderColor="gray.200" />
                 <MenuItem
                   onClick={() => setStatusFilter('active')}
                   fontSize="xs"
                   bg={statusFilter === 'active' ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
+                  border="none"
                 >
                   <Text>Active</Text>
                 </MenuItem>
+                <Divider borderColor="gray.200" />
                 <MenuItem
                   onClick={() => setStatusFilter('archived')}
                   fontSize="xs"
                   bg={statusFilter === 'archived' ? 'gray.50' : 'white'}
                   _hover={{ bg: 'gray.50' }}
                   _focus={{ bg: 'gray.50' }}
+                  border="none"
                 >
                   <Text>Archived</Text>
                 </MenuItem>
@@ -472,21 +485,24 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                 >
                   {pageSize}
                 </MenuButton>
-                <MenuList fontSize="xs" minW="70px" py={1}>
-                  {[25, 50, 75].map((size) => (
-                    <MenuItem
-                      key={size}
-                      onClick={() => {
-                        setPageSize(size);
-                        setCurrentPage(1);
-                      }}
-                      fontSize="xs"
-                      bg={pageSize === size ? 'gray.50' : 'white'}
-                      _hover={{ bg: 'gray.50' }}
-                      _focus={{ bg: 'gray.50' }}
-                    >
-                      {size}
-                    </MenuItem>
+                <MenuList fontSize="xs" minW="70px" py={0}>
+                  {[25, 50, 75].map((size, index) => (
+                    <Box key={size}>
+                      {index > 0 && <Divider borderColor="gray.200" />}
+                      <MenuItem
+                        onClick={() => {
+                          setPageSize(size);
+                          setCurrentPage(1);
+                        }}
+                        fontSize="xs"
+                        bg={pageSize === size ? 'gray.50' : 'white'}
+                        _hover={{ bg: 'gray.50' }}
+                        _focus={{ bg: 'gray.50' }}
+                        border="none"
+                      >
+                        {size}
+                      </MenuItem>
+                    </Box>
                   ))}
                 </MenuList>
               </Menu>
