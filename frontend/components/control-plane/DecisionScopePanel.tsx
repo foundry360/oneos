@@ -60,7 +60,7 @@ export default function DecisionScopePanel({
 
   return (
     <Box
-      width="15%"
+      width="12%"
       bg="white"
       borderRight="1px solid"
       borderColor="gray.200"
@@ -68,7 +68,7 @@ export default function DecisionScopePanel({
       overflowY="auto"
     >
       <Box
-        px={8}
+        px={5}
         py={5}
         borderBottom="1px solid"
         borderColor="gray.200"
@@ -84,7 +84,7 @@ export default function DecisionScopePanel({
 
       <VStack align="stretch" spacing={0} py={2}>
         {/* Decision Scope Section */}
-        <Box px={8} py={4}>
+        <Box px={5} py={4}>
           <Text fontSize="xs" fontWeight="500" color="gray.600" mb={3} textTransform="uppercase" letterSpacing="0.05em">
             List View
           </Text>
@@ -117,7 +117,7 @@ export default function DecisionScopePanel({
         </Box>
 
         {/* Workflows Section */}
-        <Box px={8} py={4}>
+        <Box px={5} py={4}>
           <Text fontSize="xs" fontWeight="500" color="gray.600" mb={3} textTransform="uppercase" letterSpacing="0.05em">
             Workflows
           </Text>

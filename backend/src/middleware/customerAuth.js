@@ -76,10 +76,83 @@ async function customerApiKeyAuth(req, res, next) {
     db.query('SELECT track_api_key_usage($1)', [apiKeyHash])
       .catch(err => logger.error('Failed to track API key usage', { error: err.message }));
     
-    // Attach customer context to request
+    // For customer API key auth, require userId in request body
+    // This identifies the individual user within the customer's single-tenant system
+    const { userId, userEmail, displayName } = req.body || {};
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        error: 'userId required',
+        message: 'For customer API key authentication, userId (your internal user identifier) must be provided in the request body'
+      });
+    }
+    
+    // Get or create customer user
+    let customerUserResult = await db.query(
+      `SELECT * FROM customer_users 
+       WHERE customer_account_id = $1 AND customer_user_id = $2`,
+      [customer.customer_id, userId]
+    );
+    
+    let customerUser;
+    if (customerUserResult.rows.length === 0) {
+      // Auto-create customer user on first use
+      const newUserResult = await db.query(
+        `INSERT INTO customer_users (
+          customer_account_id, customer_user_id, customer_user_email, display_name, role
+        ) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [
+          customer.customer_id, 
+          userId, 
+          userEmail || null, 
+          displayName || null,
+          'user' // Default role
+        ]
+      );
+      customerUser = newUserResult.rows[0];
+      logger.info('Auto-created customer user', {
+        customerId: customer.customer_id,
+        customerUserId: userId,
+        customerUserDbId: customerUser.id
+      });
+    } else {
+      customerUser = customerUserResult.rows[0];
+      
+      // Update email/display name if provided and different
+      if (userEmail && userEmail !== customerUser.customer_user_email) {
+        await db.query(
+          `UPDATE customer_users 
+           SET customer_user_email = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $2`,
+          [userEmail, customerUser.id]
+        );
+        customerUser.customer_user_email = userEmail;
+      }
+      
+      if (displayName && displayName !== customerUser.display_name) {
+        await db.query(
+          `UPDATE customer_users 
+           SET display_name = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $2`,
+          [displayName, customerUser.id]
+        );
+        customerUser.display_name = displayName;
+      }
+    }
+    
+    // Check if customer user is active
+    if (!customerUser.is_active) {
+      return res.status(403).json({ 
+        error: 'User account inactive',
+        message: 'This user account has been deactivated'
+      });
+    }
+    
+    // Attach customer user (not customer account) to request
     req.user = {
-      id: customer.user_id || customer.customer_id, // Use customer_id as fallback
-      email: customer.email || `customer-${customer.customer_code}@system`,
+      id: customerUser.id, // Use customer_users.id, not customer_account_id
+      email: customerUser.customer_user_email || `user-${userId}@${customer.customer_code}`,
+      customerUserId: customerUser.customer_user_id, // Customer's internal ID
       customerId: customer.customer_id,
       customerName: customer.customer_name,
       customerCode: customer.customer_code,
@@ -87,14 +160,17 @@ async function customerApiKeyAuth(req, res, next) {
       governanceProfileId: customer.governance_profile_id,
       llmProviderConfigId: customer.llm_provider_config_id,
       apiKeyId: customer.api_key_id,
+      role: customerUser.role, // From customer_users table
       permissions: customer.permissions || {},
-      metadata: customer.metadata || {}
+      metadata: { ...customer.metadata, ...customerUser.metadata }
     };
     
     // Add customer context to logger
     req.logContext = {
       customerId: customer.customer_id,
       customerCode: customer.customer_code,
+      customerUserId: userId,
+      customerUserDbId: customerUser.id,
       apiKeyId: customer.api_key_id
     };
     

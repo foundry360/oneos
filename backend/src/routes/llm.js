@@ -28,6 +28,7 @@ router.post('/prompt', flexibleAuth, auditLog, async (req, res) => {
     // Use customer domain if available, otherwise use provided domain
     const effectiveDomain = req.user.domain || domain || null;
     
+    // Pass user context to determine if it's a customer user or internal user
     const result = await llmGatewayService.processPrompt(
       prompt,
       req.user.id,
@@ -36,7 +37,9 @@ router.post('/prompt', flexibleAuth, auditLog, async (req, res) => {
         provider: provider || 'custom',
         domain: effectiveDomain,
         llmConfig: llmConfig || null,
-        llmOptions: llmOptions || {}
+        llmOptions: llmOptions || {},
+        isCustomerUser: !!req.user.customerId, // True if customerId exists
+        customerUserId: req.user.customerUserId // Customer's internal user ID
       }
     );
 
@@ -62,6 +65,7 @@ router.post('/prompt', flexibleAuth, auditLog, async (req, res) => {
  */
 router.get('/prompt/:id', flexibleAuth, auditLog, async (req, res) => {
   try {
+    // Support both internal users (user_id) and customer users (customer_user_id)
     const result = await db.query(
       `SELECT 
         lpr.*, 
@@ -73,7 +77,8 @@ router.get('/prompt/:id', flexibleAuth, auditLog, async (req, res) => {
         lprs.created_at as response_created_at
        FROM llm_prompt_requests lpr
        LEFT JOIN llm_prompt_responses lprs ON lpr.id = lprs.request_id
-       WHERE lpr.id = $1 AND lpr.user_id = $2`,
+       WHERE lpr.id = $1 
+         AND (lpr.user_id = $2 OR lpr.customer_user_id = $2)`,
       [req.params.id, req.user.id]
     );
 
@@ -107,7 +112,7 @@ router.get('/prompts', flexibleAuth, auditLog, async (req, res) => {
         lprs.total_tokens
       FROM llm_prompt_requests lpr
       LEFT JOIN llm_prompt_responses lprs ON lpr.id = lprs.request_id
-      WHERE lpr.user_id = $1
+      WHERE (lpr.user_id = $1 OR lpr.customer_user_id = $1)
     `;
     const params = [req.user.id];
 
@@ -126,9 +131,10 @@ router.get('/prompts', flexibleAuth, auditLog, async (req, res) => {
 
     const result = await db.query(query, params);
     
-    // Get total count
+    // Get total count (support both user_id and customer_user_id)
     const countResult = await db.query(
-      `SELECT COUNT(*) as total FROM llm_prompt_requests WHERE user_id = $1`,
+      `SELECT COUNT(*) as total FROM llm_prompt_requests 
+       WHERE user_id = $1 OR customer_user_id = $1`,
       [req.user.id]
     );
 
@@ -247,7 +253,7 @@ router.get('/stats', flexibleAuth, auditLog, async (req, res) => {
         COUNT(*) FILTER (WHERE risk_level = 'low') as low_risk,
         AVG(risk_score) as avg_risk_score
        FROM llm_prompt_requests
-       WHERE user_id = $1`,
+       WHERE user_id = $1 OR customer_user_id = $1`,
       [req.user.id]
     );
 
@@ -258,7 +264,7 @@ router.get('/stats', flexibleAuth, auditLog, async (req, res) => {
         SUM(lprs.total_tokens) as total_tokens
        FROM llm_prompt_requests lpr
        JOIN llm_prompt_responses lprs ON lpr.id = lprs.request_id
-       WHERE lpr.user_id = $1`,
+       WHERE lpr.user_id = $1 OR lpr.customer_user_id = $1`,
       [req.user.id]
     );
 

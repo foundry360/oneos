@@ -1,51 +1,29 @@
-const { createClient } = require('@supabase/supabase-js');
+const db = require('../config/database');
 const logger = require('../utils/logger');
 
 /**
  * RBAC Middleware
- * Checks user roles from Supabase profiles table or JWT claims
+ * Checks user roles from PostgreSQL profiles table or JWT claims
  */
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  logger.warn('Supabase credentials not configured. RBAC middleware will be limited.');
-}
-
-const supabaseAdmin = supabaseUrl && supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
 
 /**
- * Get user role from Supabase profiles table
+ * Get user role from PostgreSQL profiles table
  */
 async function getUserRole(userId) {
-  if (!supabaseAdmin) {
-    logger.warn('Supabase admin client not configured. Cannot fetch user role from Supabase.');
-    return null;
-  }
   try {
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    const result = await db.query(
+      'SELECT role FROM profiles WHERE id = $1',
+      [userId]
+    );
     
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      logger.error('Failed to get user role from Supabase', { userId, error: error.message });
+    if (result.rows.length === 0) {
+      logger.debug('User profile not found', { userId });
       return null;
     }
     
-    return data?.role || null;
+    return result.rows[0].role || null;
   } catch (error) {
-    logger.error('Failed to get user role from Supabase (catch block)', { userId, error: error.message });
+    logger.error('Failed to get user role from database', { userId, error: error.message });
     return null;
   }
 }
@@ -67,7 +45,7 @@ function requireRole(...allowedRoles) {
         return res.status(401).json({ error: 'Authentication required' });
       }
       
-      // Get role from database (Supabase) - authoritative source
+      // Get role from database (PostgreSQL) - authoritative source
       // #region agent log
       fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:65',message:'Getting user role',data:{userId:req.user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
       // #endregion
@@ -90,7 +68,7 @@ function requireRole(...allowedRoles) {
         // #region agent log
         fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'rbac.js:77',message:'User role not found',data:{userId:req.user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
         // #endregion
-        return res.status(403).json({ error: 'User role not found. Please ensure your profile exists in the Supabase profiles table.' });
+        return res.status(403).json({ error: 'User role not found. Please ensure your profile exists in the profiles table.' });
       }
       
       if (!allowedRoles.includes(userRole)) {

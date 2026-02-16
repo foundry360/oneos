@@ -204,15 +204,57 @@ const theme = extendTheme({
       baseStyle: {
         bg: 'blue.50',
         borderRadius: 'md',
+        border: 'none',
+        boxShadow: 'none',
         _hover: {
           bg: 'blue.100',
+          border: 'none',
+          boxShadow: 'none',
         },
         _active: {
           bg: 'blue.200',
+          border: 'none',
+          boxShadow: 'none',
         },
         _focus: {
           bg: 'blue.50',
           boxShadow: 'none',
+          border: 'none',
+          outline: 'none',
+        },
+        _focusVisible: {
+          boxShadow: 'none',
+          border: 'none',
+          outline: 'none',
+        },
+      },
+    },
+    DrawerCloseButton: {
+      baseStyle: {
+        bg: 'blue.50',
+        borderRadius: 'md',
+        border: 'none',
+        boxShadow: 'none',
+        _hover: {
+          bg: 'blue.100',
+          border: 'none',
+          boxShadow: 'none',
+        },
+        _active: {
+          bg: 'blue.200',
+          border: 'none',
+          boxShadow: 'none',
+        },
+        _focus: {
+          bg: 'blue.50',
+          boxShadow: 'none',
+          border: 'none',
+          outline: 'none',
+        },
+        _focusVisible: {
+          boxShadow: 'none',
+          border: 'none',
+          outline: 'none',
         },
       },
     },
@@ -267,6 +309,28 @@ const theme = extendTheme({
       baseStyle: {
         bg: 'gray.100',
         color: 'gray.800',
+      },
+    },
+    Select: {
+      baseStyle: {
+        field: {
+          border: '1px solid',
+          borderColor: 'gray.300',
+          _hover: {
+            bg: 'gray.50',
+            borderColor: 'gray.400',
+          },
+          _focus: {
+            boxShadow: 'none',
+            borderColor: 'gray.400',
+            outline: 'none',
+          },
+          _focusVisible: {
+            boxShadow: 'none',
+            borderColor: 'gray.400',
+            outline: 'none',
+          },
+        },
       },
     },
   },
