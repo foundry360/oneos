@@ -56,9 +56,6 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-aigov}:${POSTGRES_PASSWORD:-aigov_secret}@postgres:5432/${POSTGRES_DB:-ai_governance}
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - PUBSUB_PROJECT_ID=${PUBSUB_PROJECT_ID:-ai-gov-local}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - STORAGE_PATH=/app/storage
       - LOG_PATH=/app/logs
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
@@ -85,8 +82,6 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:3001/api
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-https://lraufigpyabmkwmibntm.supabase.co}}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyYXVmaWdweWFibWt3bWlibnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTI2MTIsImV4cCI6MjA4NDU4ODYxMn0.BH2Yg-27zCmdpJvdvb7TM-bKieETdka6B6mJ0SG2NGM}}
     ports:
       - "3000:3000"
     volumes:

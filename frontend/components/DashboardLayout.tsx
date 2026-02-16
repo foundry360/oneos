@@ -34,11 +34,12 @@ import {
   Heading,
   Input,
   useToast,
+  Tooltip,
 } from '@chakra-ui/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks } from 'lucide-react';
+import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks, Users } from 'lucide-react';
 
 type SidebarMode = 'expanded' | 'collapsed' | 'hover';
 
@@ -65,6 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const { 
@@ -166,10 +168,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (!file) return;
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload an image file',
+        description: 'Please upload a JPEG, PNG, GIF, or WebP image',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -191,7 +194,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     setUploadingAvatar(true);
     try {
-      await uploadAvatar(file);
+      const avatarUrl = await uploadAvatar(file);
       toast({
         title: 'Avatar updated',
         status: 'success',
@@ -212,6 +215,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setRemovingAvatar(true);
+    try {
+      await updateProfile({ avatar_url: null });
+      toast({
+        title: 'Avatar removed',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error: any) {
+      console.error('Remove avatar error:', error);
+      toast({
+        title: 'Failed to remove avatar',
+        description: error?.message || 'Please try again',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setRemovingAvatar(false);
     }
   };
 
@@ -310,7 +337,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </VStack>
           <Avatar
             size="sm"
-            src={profile?.avatar_url || undefined}
+            src={
+              profile?.avatar_url 
+                ? profile.avatar_url.startsWith('data:') || profile.avatar_url.startsWith('http')
+                  ? profile.avatar_url
+                  : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${profile.avatar_url}`
+                : undefined
+            }
             name={profile?.display_name || user.email || 'User'}
             bg="blue.500"
             color="white"
@@ -342,6 +375,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/governance-profiles" isCollapsed={isCollapsed} icon={<ShieldCheck size={20} />}>
               Governance Profiles
             </NavLink>
+            {profile?.role === 'admin' && (
+              <NavLink href="/users" isCollapsed={isCollapsed} icon={<Users size={20} />}>
+                Users
+              </NavLink>
+            )}
             <NavLink href="/files" isCollapsed={isCollapsed} icon={<FileText size={20} />}>
               Files
             </NavLink>
@@ -462,7 +500,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <DrawerOverlay />
         <DrawerContent>
-          <DrawerCloseButton _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }} _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }} _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }} />
+          <DrawerCloseButton 
+            _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }} 
+            _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }} 
+            _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none', border: 'none' }}
+            _hover={{ border: 'none', boxShadow: 'none' }}
+          />
           <DrawerHeader borderBottomWidth="1px">
             <Heading size="md">Settings</Heading>
           </DrawerHeader>
@@ -480,42 +523,67 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <FormLabel fontSize="sm" color="gray.600" mb={2}>
                       Avatar
                     </FormLabel>
-                    <HStack spacing={4}>
-                      <Avatar
-                        size="lg"
-                        src={profile?.avatar_url || undefined}
-                        name={profile?.display_name || user.email || 'User'}
-                        bg="blue.500"
-                        color="white"
-                      />
-                      <VStack align="flex-start" spacing={2} flex={1}>
-                        <Input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          display="none"
-                          id="avatar-upload"
+                    <VStack spacing={3} align="flex-start">
+                      <HStack spacing={4}>
+                        <Avatar
+                          size="lg"
+                          src={
+                            profile?.avatar_url 
+                              ? profile.avatar_url.startsWith('data:') || profile.avatar_url.startsWith('http')
+                                ? profile.avatar_url
+                                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${profile.avatar_url}`
+                              : undefined
+                          }
+                          name={profile?.display_name || user.email || 'User'}
+                          bg="blue.500"
+                          color="white"
                         />
-                        <Button
-                          as="label"
-                          htmlFor="avatar-upload"
-                          size="sm"
-                          variant="outline"
-                          isLoading={uploadingAvatar}
-                          cursor="pointer"
-                          _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                          _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                          _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          {uploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
-                        </Button>
-                        <Text fontSize="xs" color="gray.500">
-                          JPG, PNG or GIF. Max 5MB
-                        </Text>
-                      </VStack>
-                    </HStack>
+                        <VStack align="flex-start" spacing={1}>
+                          <HStack spacing={2}>
+                            <Input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                              onChange={handleAvatarUpload}
+                              display="none"
+                              id="avatar-upload"
+                            />
+                            <Button
+                              as="label"
+                              htmlFor="avatar-upload"
+                              size="sm"
+                              variant="outline"
+                              isLoading={uploadingAvatar}
+                              cursor="pointer"
+                              _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                              _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                              _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                              onMouseDown={(e) => e.preventDefault()}
+                            >
+                              {uploadingAvatar ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            {profile?.avatar_url && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                colorScheme="red"
+                                isLoading={removingAvatar}
+                                onClick={handleRemoveAvatar}
+                                _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                                _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                                _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                                onMouseDown={(e) => e.preventDefault()}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </HStack>
+                          <Text fontSize="xs" color="gray.500">
+                            JPEG, PNG, GIF, or WebP. Max 5MB
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </VStack>
                   </Box>
 
                   {/* Display Name */}
@@ -680,47 +748,48 @@ function NavLink({ href, children, onClick, isSignOut, isCollapsed, icon }: NavL
 
   if (isCollapsed) {
     return (
-      <Link href={href} onClick={onClick}>
-        <Box
-          px={2}
-          py={2}
-          borderRadius={0}
-          bg={isActive && !isSignOut ? 'white' : 'transparent'}
-          borderLeft={isActive && !isSignOut ? '3px solid' : '3px solid transparent'}
-          borderColor={isActive && !isSignOut ? 'blue.500' : 'transparent'}
-          _hover={{ bg: isActive ? 'white' : 'gray.100' }}
-          _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-          _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-          _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
-          transition="all 0.2s"
-          cursor="pointer"
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          title={String(children)}
-        >
-          {icon ? (
-            <Box
-              color={isActive && !isSignOut ? 'gray.600' : 'gray.700'}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {icon}
-            </Box>
-          ) : (
-            <Text
-              fontSize="xs"
-              color={isActive && !isSignOut ? 'gray.700' : 'gray.700'}
-              fontWeight={isActive && !isSignOut ? '600' : 'medium'}
-              noOfLines={1}
-              textAlign="center"
-            >
-              {String(children).charAt(0)}
-            </Text>
-          )}
-        </Box>
-      </Link>
+      <Tooltip label={String(children)} fontSize="xs" placement="right">
+        <Link href={href} onClick={onClick}>
+          <Box
+            px={2}
+            py={2}
+            borderRadius={0}
+            bg={isActive && !isSignOut ? 'white' : 'transparent'}
+            borderLeft={isActive && !isSignOut ? '3px solid' : '3px solid transparent'}
+            borderColor={isActive && !isSignOut ? 'blue.500' : 'transparent'}
+            _hover={{ bg: isActive ? 'white' : 'gray.100' }}
+            _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+            _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+            _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+            transition="all 0.2s"
+            cursor="pointer"
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+          >
+            {icon ? (
+              <Box
+                color={isActive && !isSignOut ? 'gray.600' : 'gray.500'}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {icon}
+              </Box>
+            ) : (
+              <Text
+                fontSize="xs"
+                color={isActive && !isSignOut ? 'gray.700' : 'gray.700'}
+                fontWeight={isActive && !isSignOut ? '600' : 'medium'}
+                noOfLines={1}
+                textAlign="center"
+              >
+                {String(children).charAt(0)}
+              </Text>
+            )}
+          </Box>
+        </Link>
+      </Tooltip>
     );
   }
 
@@ -745,7 +814,7 @@ function NavLink({ href, children, onClick, isSignOut, isCollapsed, icon }: NavL
       >
         {icon && (
           <Box
-            color={isActive && !isSignOut ? 'gray.600' : 'gray.600'}
+            color={isActive && !isSignOut ? 'gray.600' : 'gray.500'}
             display="flex"
             alignItems="center"
           >

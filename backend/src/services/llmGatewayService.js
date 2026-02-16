@@ -16,7 +16,9 @@ class LLMGatewayService {
       provider = 'custom',
       domain = null,
       skipGovernance = false, // For admin/system use only
-      llmConfig = null // Direct LLM config override
+      llmConfig = null, // Direct LLM config override
+      isCustomerUser = false, // True if userId is from customer_users table
+      customerUserId = null // Customer's internal user identifier
     } = options;
 
     try {
@@ -36,7 +38,9 @@ class LLMGatewayService {
         if (!governanceResult.allowed) {
           await this.createRequestRecord(requestId, userId, prompt, promptHash, modelName, provider, {
             status: 'rejected',
-            governanceResult
+            governanceResult,
+            isCustomerUser,
+            customerUserId
           });
           
           throw new Error(governanceResult.reason || 'Prompt rejected by governance');
@@ -62,13 +66,25 @@ class LLMGatewayService {
         {
           status: governanceResult?.requiresReview ? 'in_review' : 'approved',
           governanceResult,
-          preProcessingMetadata
+          preProcessingMetadata,
+          isCustomerUser,
+          customerUserId
         }
       );
 
       // 4. If review required, create review task
       if (governanceResult?.requiresReview) {
-        await this.createReviewTask(requestId, governanceResult, userId);
+        // Get customer account ID if this is a customer user
+        let customerAccountId = null;
+        if (options.isCustomerUser) {
+          const customerUserResult = await db.query(
+            `SELECT customer_account_id FROM customer_users WHERE id = $1`,
+            [userId]
+          );
+          customerAccountId = customerUserResult.rows[0]?.customer_account_id || null;
+        }
+        
+        await this.createReviewTask(requestId, governanceResult, userId, customerAccountId);
         return {
           requestId,
           status: 'pending_review',
@@ -141,16 +157,23 @@ class LLMGatewayService {
    * Create request record
    */
   async createRequestRecord(requestId, userId, prompt, promptHash, modelName, provider, metadata) {
+    // Determine if this is a customer user or internal user
+    const isCustomerUser = metadata.isCustomerUser || false;
+    
+    // For customer users, use customer_user_id; for internal users, use user_id
+    const userColumn = isCustomerUser ? 'customer_user_id' : 'user_id';
+    const userValue = userId;
+    
     const result = await db.query(
       `INSERT INTO llm_prompt_requests (
-        id, user_id, prompt, prompt_hash, model_name, provider,
+        id, ${userColumn}, prompt, prompt_hash, model_name, provider,
         governance_profile_id, risk_level, risk_score, 
         requires_review, status, pre_processing_metadata, governance_evaluation
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         requestId,
-        userId,
+        userValue,
         prompt,
         promptHash,
         modelName,
@@ -284,11 +307,279 @@ class LLMGatewayService {
   }
 
   /**
-   * Create review task for prompt
+   * Generate decision ID in format DEC-YYYY-NNN
    */
-  async createReviewTask(requestId, governanceResult, userId) {
+  async generateDecisionId() {
+    const year = new Date().getFullYear();
+    const result = await db.query(
+      `SELECT COUNT(*) + 1 as next_num 
+       FROM decisions 
+       WHERE id LIKE $1`,
+      [`DEC-${year}-%`]
+    );
+    const nextNum = result.rows[0]?.next_num || 1;
+    return `DEC-${year}-${String(nextNum).padStart(3, '0')}`;
+  }
+
+  /**
+   * Generate AI recommendation based on risk assessment
+   */
+  generateAIRecommendation(riskLevel, riskScore, factors) {
+    let action = 'approve';
+    let explanation = '';
+    let confidence = 0;
+
+    if (riskLevel === 'high') {
+      action = 'reject';
+      confidence = Math.min(95, 70 + (riskScore * 25));
+      const piiFactor = factors.find(f => f.type === 'pii_detected');
+      const harmfulFactor = factors.find(f => f.type === 'harmful_content');
+      
+      if (piiFactor) {
+        explanation = `High risk due to PII detection (${piiFactor.details?.join(', ') || 'sensitive data'}). Requires proper anonymization or data protection measures before processing.`;
+      } else if (harmfulFactor) {
+        explanation = `High risk due to potentially harmful content detected. Prompt contains patterns that may violate safety guidelines.`;
+      } else {
+        explanation = `High risk prompt (score: ${riskScore.toFixed(2)}) requires human review. Multiple risk factors detected: ${factors.map(f => f.type).join(', ')}.`;
+      }
+    } else if (riskLevel === 'medium') {
+      action = riskScore >= 0.6 ? 'escalate' : 'approve';
+      confidence = Math.min(85, 50 + (riskScore * 35));
+      const keywordFactor = factors.find(f => f.type === 'sensitive_keywords');
+      
+      if (keywordFactor) {
+        explanation = `Medium risk due to sensitive keywords detected. Recommend review to ensure compliance with governance policies.`;
+      } else {
+        explanation = `Medium risk prompt (score: ${riskScore.toFixed(2)}). Review recommended to verify compliance.`;
+      }
+    } else {
+      action = 'approve';
+      confidence = Math.max(60, 80 - (riskScore * 20));
+      explanation = `Low risk prompt. Safe to proceed with standard processing.`;
+    }
+
+    return {
+      action,
+      explanation,
+      confidence: Math.round(confidence)
+    };
+  }
+
+  /**
+   * Generate risk rationale from assessment factors
+   */
+  generateRiskRationale(promptText, riskLevel, riskScore, factors, profile) {
+    const factorDescriptions = factors.map(factor => {
+      switch (factor.type) {
+        case 'pii_detected':
+          return `PII detected: ${factor.details?.join(', ') || 'sensitive personal information'}`;
+        case 'sensitive_keywords':
+          return `Sensitive keywords found: ${factor.keywords?.join(', ') || 'restricted terms'}`;
+        case 'harmful_content':
+          return 'Potentially harmful content patterns detected';
+        case 'long_prompt':
+          return `Long prompt (${factor.length} characters) may require additional processing`;
+        case 'domain_rule':
+          return `Domain-specific rule triggered: ${factor.rule || 'custom rule'}`;
+        default:
+          return factor.type;
+      }
+    });
+
+    let rationale = `Risk Level: ${riskLevel.toUpperCase()} (Score: ${riskScore.toFixed(2)}/1.0)\n\n`;
+    rationale += `Risk Factors:\n${factorDescriptions.map(f => `- ${f}`).join('\n')}\n\n`;
+    
+    if (profile) {
+      rationale += `Governance Profile: ${profile.name} (${profile.domain})\n`;
+      const thresholds = profile.risk_thresholds?.[riskLevel];
+      if (thresholds) {
+        if (thresholds.requires_review) {
+          rationale += `Review Required: Yes (${thresholds.min_reviewers || 1} reviewer(s), SLA: ${thresholds.sla_hours || 48} hours)\n`;
+        }
+      }
+    }
+
+    return rationale;
+  }
+
+  /**
+   * Auto-assign reviewer based on governance profile rules
+   * Checks both internal platform users (profiles) and customer users (customer_users)
+   */
+  async assignReviewer(governanceProfileId, riskLevel, domain, customerAccountId = null) {
+    try {
+      if (!governanceProfileId) {
+        return null;
+      }
+
+      // Get governance profile
+      const profile = await db.query(
+        `SELECT assignment_rules FROM governance_profiles WHERE id = $1`,
+        [governanceProfileId]
+      );
+      
+      if (!profile.rows[0]) {
+        return null;
+      }
+      
+      const assignmentRules = profile.rows[0].assignment_rules || {};
+      const eligibleRoles = assignmentRules.roles || ['governance', 'reviewer'];
+      
+      // Get eligible reviewers from internal platform users (profiles table)
+      const internalReviewers = await db.query(
+        `SELECT 
+          p.id,
+          p.email,
+          COUNT(rt.id) as pending_tasks
+        FROM profiles p
+        LEFT JOIN review_tasks rt ON rt.assigned_to = p.id AND rt.status = 'pending'
+        WHERE p.role = ANY($1::text[])
+        GROUP BY p.id, p.email
+        ORDER BY pending_tasks ASC, p.email ASC
+        LIMIT 10`,
+        [eligibleRoles]
+      );
+      
+      // Get eligible reviewers from customer users (if customerAccountId provided)
+      let customerReviewers = { rows: [] };
+      if (customerAccountId) {
+        customerReviewers = await db.query(
+          `SELECT 
+            cu.id,
+            cu.customer_user_email as email,
+            cu.role,
+            COUNT(rt.id) as pending_tasks
+          FROM customer_users cu
+          LEFT JOIN review_tasks rt ON rt.assigned_to = cu.id AND rt.status = 'pending'
+          WHERE cu.customer_account_id = $1
+            AND cu.role = ANY($2::text[])
+            AND cu.is_active = true
+          GROUP BY cu.id, cu.customer_user_email, cu.role
+          ORDER BY pending_tasks ASC, cu.customer_user_email ASC
+          LIMIT 10`,
+          [customerAccountId, eligibleRoles]
+        );
+      }
+      
+      // Combine and sort by workload
+      const allReviewers = [
+        ...internalReviewers.rows.map(r => ({ ...r, source: 'internal' })),
+        ...customerReviewers.rows.map(r => ({ ...r, source: 'customer' }))
+      ].sort((a, b) => {
+        // Sort by pending tasks first, then by email
+        if (a.pending_tasks !== b.pending_tasks) {
+          return a.pending_tasks - b.pending_tasks;
+        }
+        return a.email.localeCompare(b.email);
+      });
+      
+      if (allReviewers.length === 0) {
+        logger.warn('No eligible reviewers found', { roles: eligibleRoles, customerAccountId });
+        return null;
+      }
+      
+      // Round-robin: pick reviewer with least pending tasks
+      const assignedReviewer = allReviewers[0];
+      
+      logger.info('Reviewer auto-assigned', {
+        reviewerId: assignedReviewer.id,
+        reviewerEmail: assignedReviewer.email,
+        pendingTasks: assignedReviewer.pending_tasks,
+        source: assignedReviewer.source,
+        profileId: governanceProfileId
+      });
+      
+      return assignedReviewer.id;
+    } catch (error) {
+      logger.error('Failed to assign reviewer', { error: error.message });
+      return null; // Fail gracefully, allow manual assignment
+    }
+  }
+
+  /**
+   * Create review task and decision for prompt
+   */
+  async createReviewTask(requestId, governanceResult, userId, customerAccountId = null) {
     const reviewTaskId = uuidv4();
     
+    // Get prompt text and user info for decision summary
+    const promptRequest = await db.query(
+      `SELECT 
+        lpr.prompt, 
+        lpr.customer_user_id,
+        cu.customer_user_email,
+        cu.customer_user_id as customer_internal_user_id,
+        cu.display_name,
+        cu.customer_account_id,
+        ca.customer_name,
+        ca.customer_code
+      FROM llm_prompt_requests lpr
+      LEFT JOIN customer_users cu ON lpr.customer_user_id = cu.id
+      LEFT JOIN customer_accounts ca ON cu.customer_account_id = ca.id
+      WHERE lpr.id = $1`,
+      [requestId]
+    );
+    const promptData = promptRequest.rows[0];
+    const promptText = promptData?.prompt || 'LLM Prompt Request';
+    
+    // Build submitter info for decision title
+    let submitterInfo = 'Unknown User';
+    if (promptData?.customer_user_email) {
+      submitterInfo = `${promptData.customer_user_email} (${promptData.customer_name || promptData.customer_code})`;
+    } else if (promptData?.customer_internal_user_id) {
+      submitterInfo = `User ${promptData.customer_internal_user_id} (${promptData.customer_name || promptData.customer_code})`;
+    } else if (promptData?.display_name) {
+      submitterInfo = promptData.display_name;
+    }
+    
+    // Generate decision ID
+    const decisionId = await this.generateDecisionId();
+    
+    // Generate AI recommendation
+    const aiRecommendation = this.generateAIRecommendation(
+      governanceResult.riskLevel,
+      governanceResult.riskScore,
+      governanceResult.factors || []
+    );
+    
+    // Generate risk rationale
+    const riskRationale = this.generateRiskRationale(
+      promptText,
+      governanceResult.riskLevel,
+      governanceResult.riskScore,
+      governanceResult.factors || [],
+      governanceResult.profile
+    );
+    
+    // Auto-assign reviewer (pass customerAccountId if available)
+    const assignedReviewerId = await this.assignReviewer(
+      governanceResult.profile?.id,
+      governanceResult.riskLevel,
+      governanceResult.profile?.domain,
+      customerAccountId || promptData?.customer_account_id || null
+    );
+    
+    // Create decision entry with submitter info
+    await db.query(
+      `INSERT INTO decisions (
+        id, risk_level, type, status, assigned_to, title, summary,
+        source_refs, ai_recommendation, risk_rationale
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        decisionId,
+        governanceResult.riskLevel,
+        'llm-prompt', // Decision type for LLM prompts
+        'pending',
+        assignedReviewerId,
+        `LLM Prompt Review [${submitterInfo}]: ${promptText.substring(0, 80)}${promptText.length > 80 ? '...' : ''}`,
+        `Submitted by: ${submitterInfo}\n\n${promptText.length > 500 ? promptText.substring(0, 500) + '...' : promptText}`,
+        [requestId], // source_refs
+        JSON.stringify(aiRecommendation),
+        riskRationale
+      ]
+    );
+    
+    // Create review task
     await db.query(
       `INSERT INTO review_tasks (
         id, inference_id, task_type, priority, status, assigned_to
@@ -299,25 +590,28 @@ class LLMGatewayService {
         'llm_prompt_review',
         governanceResult.riskLevel === 'high' ? 'high' : 'medium',
         'pending',
-        null // Auto-assign based on profile rules
+        assignedReviewerId // Now auto-assigned!
       ]
     );
 
     // Log to ledger
     await ledgerService.storeReviewTaskCreation(reviewTaskId, {
       requestId,
+      decisionId,
       taskType: 'llm_prompt_review',
       riskLevel: governanceResult.riskLevel,
       governanceProfileId: governanceResult.profile?.id
     });
 
-    logger.info('Review task created for LLM prompt', {
+    logger.info('Review task and decision created for LLM prompt', {
       reviewTaskId,
+      decisionId,
       requestId,
-      riskLevel: governanceResult.riskLevel
+      riskLevel: governanceResult.riskLevel,
+      assignedTo: assignedReviewerId
     });
-
-    return reviewTaskId;
+    
+    return { reviewTaskId, decisionId };
   }
 
   /**
@@ -348,11 +642,16 @@ class LLMGatewayService {
       ['approved', reviewerId, notes, requestId]
     );
 
+    // Determine if this is a customer user or internal user
+    const isCustomerUser = !!request.customer_user_id;
+    const userId = request.customer_user_id || request.user_id;
+    
     // Process the prompt now (skip governance since already reviewed)
-    return await this.processPrompt(request.prompt, request.user_id, {
+    return await this.processPrompt(request.prompt, userId, {
       modelName: request.model_name,
       provider: request.provider,
-      skipGovernance: true // Already reviewed
+      skipGovernance: true, // Already reviewed
+      isCustomerUser
     });
   }
 

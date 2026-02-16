@@ -67,7 +67,7 @@ export function useProfile(userId: string | undefined) {
     fetchProfile();
   }, [userId]);
 
-  const updateProfile = async (updates: { display_name?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: { display_name?: string; avatar_url?: string | null }) => {
     if (!userId) {
       throw new Error('User not logged in');
     }
@@ -110,19 +110,49 @@ export function useProfile(userId: string | undefined) {
       throw new Error('User not logged in');
     }
 
-    // For now, create a data URL (base64)
-    // TODO: Implement file upload endpoint in backend
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        updateProfile({ avatar_url: dataUrl })
-          .then(() => resolve(dataUrl))
-          .catch(reject);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch(`${API_URL}/auth/profile/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        let error;
+        try {
+          error = await response.json();
+        } catch (parseError) {
+          // If response is not JSON (e.g., HTML error page), get text
+          const text = await response.text();
+          throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}`);
+        }
+        throw new Error(error.error || error.message || 'Failed to upload avatar');
+      }
+
+      const data = await response.json();
+      const avatarUrl = data.avatar_url;
+      
+      // Update local profile state
+      setProfile(prev => prev ? { ...prev, avatar_url: avatarUrl } : null);
+      
+      return avatarUrl;
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      throw new Error(error?.message || 'Failed to upload avatar');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return {

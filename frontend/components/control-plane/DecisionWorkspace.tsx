@@ -265,7 +265,7 @@ export default function DecisionWorkspace({
 
   return (
     <Box
-      width={isJudgmentPanelCollapsed ? "calc(85% - 64px)" : "55%"}
+      width={isJudgmentPanelCollapsed ? "calc(88% - 48px)" : "55%"}
       transition="width 0.2s ease"
       bg="white"
       display="flex"

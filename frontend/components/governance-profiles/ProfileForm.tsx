@@ -53,8 +53,6 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
     metadata: {} as Record<string, any>,
   });
   const [saving, setSaving] = useState(false);
-  const [riskThresholdsJson, setRiskThresholdsJson] = useState('');
-  const [assignmentRulesJson, setAssignmentRulesJson] = useState('');
   const toast = useToast();
 
   useImperativeHandle(ref, () => ({
@@ -75,8 +73,6 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
         data_controls: profile.data_controls || [],
         metadata: profile.metadata || {},
       });
-      setRiskThresholdsJson(JSON.stringify(profile.risk_thresholds || {}, null, 2));
-      setAssignmentRulesJson(JSON.stringify(profile.assignment_rules || {}, null, 2));
       setDomainInputValue(profile.domain ? getDomainLabel(profile.domain) : '');
     } else {
       // Reset when creating new profile
@@ -142,41 +138,15 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
     try {
       setSaving(true);
       
-      // Parse JSON fields
-      let riskThresholds = {};
-      let assignmentRules = {};
-      
-      try {
-        riskThresholds = riskThresholdsJson ? JSON.parse(riskThresholdsJson) : {};
-      } catch (e) {
-        toast({
-          title: 'Invalid JSON',
-          description: 'Risk thresholds must be valid JSON',
-          status: 'error',
-        });
-        return;
-      }
-      
-      try {
-        assignmentRules = assignmentRulesJson ? JSON.parse(assignmentRulesJson) : {};
-      } catch (e) {
-        toast({
-          title: 'Invalid JSON',
-          description: 'Assignment rules must be valid JSON',
-          status: 'error',
-        });
-        return;
-      }
-
       // Prepare save payload - rules and data_controls don't need IDs when creating/updating
       const savePayload: any = {
         name: formData.name,
         domain: formData.domain,
         description: formData.description,
         allowed_actions: formData.allowed_actions,
-        risk_thresholds: riskThresholds,
+        risk_thresholds: formData.risk_thresholds || {},
         human_review_requirement: formData.human_review_requirement,
-        assignment_rules: assignmentRules,
+        assignment_rules: formData.assignment_rules || {},
         rules: formData.rules.map(r => ({
           rule_type: r.rule_type,
           rule_key: r.rule_key,
@@ -216,6 +186,23 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
         ? prev.allowed_actions.filter((a) => a !== action)
         : [...prev.allowed_actions, action],
     }));
+  };
+
+  const updateRiskThreshold = (level: 'low' | 'medium' | 'high', field: string, value: any) => {
+    setFormData((prev) => {
+      const currentThresholds = prev.risk_thresholds || {};
+      const currentLevel = currentThresholds[level] || {};
+      return {
+        ...prev,
+        risk_thresholds: {
+          ...currentThresholds,
+          [level]: {
+            ...currentLevel,
+            [field]: value
+          }
+        }
+      };
+    });
   };
 
   const addRule = () => {
@@ -558,41 +545,257 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
 
             <GridItem colSpan={2}>
               <FormControl>
-                <FormLabel>Risk Thresholds (JSON)</FormLabel>
-                <Textarea
-                  value={riskThresholdsJson}
-                  onChange={(e) => setRiskThresholdsJson(e.target.value)}
-                  placeholder='{"low": {...}, "medium": {...}, "high": {...}}'
-                  fontFamily="mono"
-                  fontSize="sm"
-                  minH="150px"
-                  variant="outline"
-                  border="1px solid"
-                  borderColor="gray.300"
-                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                  _hover={{ borderColor: 'gray.400' }}
-                />
+                <FormLabel>Risk Thresholds</FormLabel>
+                <VStack align="stretch" spacing={4} p={4} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+                  {(['low', 'medium', 'high'] as const).map((level) => {
+                    const threshold = formData.risk_thresholds?.[level] || {};
+                    return (
+                      <Box key={level} p={3} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+                        <FormLabel fontSize="sm" fontWeight="bold" mb={3} textTransform="capitalize">
+                          {level} Risk
+                        </FormLabel>
+                        <VStack align="stretch" spacing={3}>
+                          <HStack spacing={2}>
+                            <Checkbox
+                              isChecked={threshold.requires_review || false}
+                              onChange={(e) => updateRiskThreshold(level, 'requires_review', e.target.checked)}
+                              size="sm"
+                            >
+                              <Text fontSize="sm">Requires Review</Text>
+                            </Checkbox>
+                            <Checkbox
+                              isChecked={threshold.auto_approve || false}
+                              onChange={(e) => updateRiskThreshold(level, 'auto_approve', e.target.checked)}
+                              size="sm"
+                            >
+                              <Text fontSize="sm">Auto Approve</Text>
+                            </Checkbox>
+                          </HStack>
+                          <HStack spacing={4}>
+                            <FormControl flex={1}>
+                              <FormLabel fontSize="xs">Min Reviewers</FormLabel>
+                              <Input
+                                type="number"
+                                value={threshold.min_reviewers || ''}
+                                onChange={(e) => updateRiskThreshold(level, 'min_reviewers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                placeholder="0"
+                                size="sm"
+                                variant="outline"
+                                border="1px solid"
+                                borderColor="gray.300"
+                                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                                _hover={{ borderColor: 'gray.400' }}
+                              />
+                            </FormControl>
+                            <FormControl flex={1}>
+                              <FormLabel fontSize="xs">SLA Hours</FormLabel>
+                              <Input
+                                type="number"
+                                value={threshold.sla_hours || ''}
+                                onChange={(e) => updateRiskThreshold(level, 'sla_hours', e.target.value ? parseInt(e.target.value) : undefined)}
+                                placeholder="48"
+                                size="sm"
+                                variant="outline"
+                                border="1px solid"
+                                borderColor="gray.300"
+                                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                                _hover={{ borderColor: 'gray.400' }}
+                              />
+                            </FormControl>
+                          </HStack>
+                          {level === 'high' && (
+                            <VStack align="stretch" spacing={2}>
+                              <Text fontSize="xs" fontWeight="medium" color="gray.600">Special Requirements:</Text>
+                              <HStack spacing={4} flexWrap="wrap">
+                                <Checkbox
+                                  isChecked={threshold.requires_compliance_officer || false}
+                                  onChange={(e) => updateRiskThreshold(level, 'requires_compliance_officer', e.target.checked)}
+                                  size="sm"
+                                >
+                                  <Text fontSize="sm">Compliance Officer</Text>
+                                </Checkbox>
+                                <Checkbox
+                                  isChecked={threshold.requires_financial_expert || false}
+                                  onChange={(e) => updateRiskThreshold(level, 'requires_financial_expert', e.target.checked)}
+                                  size="sm"
+                                >
+                                  <Text fontSize="sm">Financial Expert</Text>
+                                </Checkbox>
+                                <Checkbox
+                                  isChecked={threshold.requires_legal_approval || false}
+                                  onChange={(e) => updateRiskThreshold(level, 'requires_legal_approval', e.target.checked)}
+                                  size="sm"
+                                >
+                                  <Text fontSize="sm">Legal Approval</Text>
+                                </Checkbox>
+                              </HStack>
+                            </VStack>
+                          )}
+                        </VStack>
+                      </Box>
+                    );
+                  })}
+                </VStack>
               </FormControl>
             </GridItem>
 
             <GridItem colSpan={2}>
               <FormControl>
-                <FormLabel>Assignment Rules (JSON)</FormLabel>
-                <Textarea
-                  value={assignmentRulesJson}
-                  onChange={(e) => setAssignmentRulesJson(e.target.value)}
-                  placeholder='{"roles": [...], "sla_hours": 48}'
-                  fontFamily="mono"
-                  fontSize="sm"
-                  minH="100px"
-                  variant="outline"
-                  border="1px solid"
-                  borderColor="gray.300"
-                  _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                  _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                  _hover={{ borderColor: 'gray.400' }}
-                />
+                <FormLabel>Assignment Rules</FormLabel>
+                <VStack align="stretch" spacing={4} p={4} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+                  {/* Role Selection */}
+                  <Box>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2}>Eligible Roles</FormLabel>
+                    <HStack spacing={2} flexWrap="wrap">
+                      {['governance', 'reviewer', 'admin'].map((role) => {
+                        const isSelected = (formData.assignment_rules?.roles || []).includes(role);
+                        return (
+                          <Box
+                            key={role}
+                            as="button"
+                            type="button"
+                            onClick={() => {
+                              const currentRoles = formData.assignment_rules?.roles || [];
+                              const newRoles = isSelected
+                                ? currentRoles.filter((r: string) => r !== role)
+                                : [...currentRoles, role];
+                              setFormData({
+                                ...formData,
+                                assignment_rules: {
+                                  ...formData.assignment_rules,
+                                  roles: newRoles
+                                }
+                              });
+                            }}
+                            px={3}
+                            py={1.5}
+                            borderRadius="md"
+                            bg={isSelected ? 'blue.50' : 'white'}
+                            color={isSelected ? 'blue.700' : 'gray.700'}
+                            fontSize="sm"
+                            fontWeight={isSelected ? '500' : '400'}
+                            cursor="pointer"
+                            sx={{
+                              border: '1px solid !important',
+                              borderColor: isSelected ? '#3182CE !important' : '#CBD5E0 !important',
+                              '&:hover': {
+                                borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                                border: '1px solid !important',
+                                bg: isSelected ? '#BEE3F8' : '#F7FAFC',
+                              },
+                              '&:active': {
+                                border: '1px solid !important',
+                                borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                                bg: isSelected ? '#90CDF4' : '#EDF2F7',
+                              },
+                              '&:focus': {
+                                border: '1px solid !important',
+                                borderColor: isSelected ? '#3182CE !important' : '#A0AEC0 !important',
+                                outline: 'none',
+                                boxShadow: 'none',
+                              },
+                              '&:focus-visible': {
+                                border: '1px solid !important',
+                                borderColor: isSelected ? '#3182CE !important' : '#A0AEC0 !important',
+                                outline: 'none',
+                                boxShadow: 'none',
+                              },
+                            }}
+                          >
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </Box>
+                        );
+                      })}
+                    </HStack>
+                  </Box>
+
+                  {/* SLA Hours */}
+                  <HStack spacing={4}>
+                    <FormControl flex={1}>
+                      <FormLabel fontSize="sm">SLA Hours</FormLabel>
+                      <Input
+                        type="number"
+                        value={formData.assignment_rules?.sla_hours || ''}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            assignment_rules: {
+                              ...formData.assignment_rules,
+                              sla_hours: e.target.value ? parseInt(e.target.value) : undefined
+                            }
+                          });
+                        }}
+                        placeholder="48"
+                        size="sm"
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                    </FormControl>
+
+                    <FormControl flex={1}>
+                      <FormLabel fontSize="sm">Escalation Hours</FormLabel>
+                      <Input
+                        type="number"
+                        value={formData.assignment_rules?.escalation_hours || ''}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            assignment_rules: {
+                              ...formData.assignment_rules,
+                              escalation_hours: e.target.value ? parseInt(e.target.value) : undefined
+                            }
+                          });
+                        }}
+                        placeholder="72"
+                        size="sm"
+                        variant="outline"
+                        border="1px solid"
+                        borderColor="gray.300"
+                        _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                        _hover={{ borderColor: 'gray.400' }}
+                      />
+                    </FormControl>
+                  </HStack>
+
+                  {/* Special Requirements */}
+                  <Box>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2}>Special Requirements</FormLabel>
+                    <VStack align="stretch" spacing={2}>
+                      {[
+                        { key: 'requires_compliance_certification', label: 'Requires Compliance Certification' },
+                        { key: 'requires_medical_license', label: 'Requires Medical License' },
+                        { key: 'requires_hr_approval', label: 'Requires HR Approval' },
+                        { key: 'requires_legal_approval_for_high_risk', label: 'Requires Legal Approval for High Risk' },
+                        { key: 'requires_technical_approval', label: 'Requires Technical Approval' },
+                        { key: 'requires_financial_expert', label: 'Requires Financial Expert' }
+                      ].map((req) => (
+                        <Checkbox
+                          key={req.key}
+                          isChecked={formData.assignment_rules?.[req.key] || false}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              assignment_rules: {
+                                ...formData.assignment_rules,
+                                [req.key]: e.target.checked
+                              }
+                            });
+                          }}
+                          size="sm"
+                        >
+                          <Text fontSize="sm">{req.label}</Text>
+                        </Checkbox>
+                      ))}
+                    </VStack>
+                  </Box>
+                </VStack>
               </FormControl>
             </GridItem>
 
@@ -1035,37 +1238,255 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
             </FormControl>
 
             <FormControl>
-              <FormLabel>Risk Thresholds (JSON)</FormLabel>
-              <Textarea
-                value={riskThresholdsJson}
-                onChange={(e) => setRiskThresholdsJson(e.target.value)}
-                placeholder='{"low": {...}, "medium": {...}, "high": {...}}'
-                fontFamily="mono"
-                minH="150px"
-                variant="outline"
-                border="1px solid"
-                borderColor="gray.300"
-                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                _hover={{ borderColor: 'gray.400' }}
-              />
+              <FormLabel>Risk Thresholds</FormLabel>
+              <VStack align="stretch" spacing={4} p={4} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+                {(['low', 'medium', 'high'] as const).map((level) => {
+                  const threshold = formData.risk_thresholds?.[level] || {};
+                  return (
+                    <Box key={level} p={3} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+                      <FormLabel fontSize="sm" fontWeight="bold" mb={3} textTransform="capitalize">
+                        {level} Risk
+                      </FormLabel>
+                      <VStack align="stretch" spacing={3}>
+                        <HStack spacing={2}>
+                          <Checkbox
+                            isChecked={threshold.requires_review || false}
+                            onChange={(e) => updateRiskThreshold(level, 'requires_review', e.target.checked)}
+                            size="sm"
+                          >
+                            <Text fontSize="sm">Requires Review</Text>
+                          </Checkbox>
+                          <Checkbox
+                            isChecked={threshold.auto_approve || false}
+                            onChange={(e) => updateRiskThreshold(level, 'auto_approve', e.target.checked)}
+                            size="sm"
+                          >
+                            <Text fontSize="sm">Auto Approve</Text>
+                          </Checkbox>
+                        </HStack>
+                        <HStack spacing={4}>
+                          <FormControl flex={1}>
+                            <FormLabel fontSize="xs">Min Reviewers</FormLabel>
+                            <Input
+                              type="number"
+                              value={threshold.min_reviewers || ''}
+                              onChange={(e) => updateRiskThreshold(level, 'min_reviewers', e.target.value ? parseInt(e.target.value) : undefined)}
+                              placeholder="0"
+                              size="sm"
+                              variant="outline"
+                              border="1px solid"
+                              borderColor="gray.300"
+                              _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                              _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                              _hover={{ borderColor: 'gray.400' }}
+                            />
+                          </FormControl>
+                          <FormControl flex={1}>
+                            <FormLabel fontSize="xs">SLA Hours</FormLabel>
+                            <Input
+                              type="number"
+                              value={threshold.sla_hours || ''}
+                              onChange={(e) => updateRiskThreshold(level, 'sla_hours', e.target.value ? parseInt(e.target.value) : undefined)}
+                              placeholder="48"
+                              size="sm"
+                              variant="outline"
+                              border="1px solid"
+                              borderColor="gray.300"
+                              _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                              _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                              _hover={{ borderColor: 'gray.400' }}
+                            />
+                          </FormControl>
+                        </HStack>
+                        {level === 'high' && (
+                          <VStack align="stretch" spacing={2}>
+                            <Text fontSize="xs" fontWeight="medium" color="gray.600">Special Requirements:</Text>
+                            <HStack spacing={4} flexWrap="wrap">
+                              <Checkbox
+                                isChecked={threshold.requires_compliance_officer || false}
+                                onChange={(e) => updateRiskThreshold(level, 'requires_compliance_officer', e.target.checked)}
+                                size="sm"
+                              >
+                                <Text fontSize="sm">Compliance Officer</Text>
+                              </Checkbox>
+                              <Checkbox
+                                isChecked={threshold.requires_financial_expert || false}
+                                onChange={(e) => updateRiskThreshold(level, 'requires_financial_expert', e.target.checked)}
+                                size="sm"
+                              >
+                                <Text fontSize="sm">Financial Expert</Text>
+                              </Checkbox>
+                              <Checkbox
+                                isChecked={threshold.requires_legal_approval || false}
+                                onChange={(e) => updateRiskThreshold(level, 'requires_legal_approval', e.target.checked)}
+                                size="sm"
+                              >
+                                <Text fontSize="sm">Legal Approval</Text>
+                              </Checkbox>
+                            </HStack>
+                          </VStack>
+                        )}
+                      </VStack>
+                    </Box>
+                  );
+                })}
+              </VStack>
             </FormControl>
 
             <FormControl>
-              <FormLabel>Assignment Rules (JSON)</FormLabel>
-              <Textarea
-                value={assignmentRulesJson}
-                onChange={(e) => setAssignmentRulesJson(e.target.value)}
-                placeholder='{"roles": [...], "sla_hours": 48}'
-                fontFamily="mono"
-                minH="100px"
-                variant="outline"
-                border="1px solid"
-                borderColor="gray.300"
-                _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
-                _hover={{ borderColor: 'gray.400' }}
-              />
+              <FormLabel>Assignment Rules</FormLabel>
+              <VStack align="stretch" spacing={4} p={4} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+                {/* Role Selection */}
+                <Box>
+                  <FormLabel fontSize="sm" fontWeight="medium" mb={2}>Eligible Roles</FormLabel>
+                  <HStack spacing={2} flexWrap="wrap">
+                    {['governance', 'reviewer', 'admin'].map((role) => {
+                      const isSelected = (formData.assignment_rules?.roles || []).includes(role);
+                      return (
+                        <Box
+                          key={role}
+                          as="button"
+                          type="button"
+                          onClick={() => {
+                            const currentRoles = formData.assignment_rules?.roles || [];
+                            const newRoles = isSelected
+                              ? currentRoles.filter((r: string) => r !== role)
+                              : [...currentRoles, role];
+                            setFormData({
+                              ...formData,
+                              assignment_rules: {
+                                ...formData.assignment_rules,
+                                roles: newRoles
+                              }
+                            });
+                          }}
+                          px={3}
+                          py={1.5}
+                          borderRadius="md"
+                          bg={isSelected ? 'blue.50' : 'white'}
+                          color={isSelected ? 'blue.700' : 'gray.700'}
+                          fontSize="sm"
+                          fontWeight={isSelected ? '500' : '400'}
+                          cursor="pointer"
+                          sx={{
+                            border: '1px solid !important',
+                            borderColor: isSelected ? '#3182CE !important' : '#CBD5E0 !important',
+                            '&:hover': {
+                              borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                              border: '1px solid !important',
+                              bg: isSelected ? '#BEE3F8' : '#F7FAFC',
+                            },
+                            '&:active': {
+                              border: '1px solid !important',
+                              borderColor: isSelected ? '#2C5282 !important' : '#A0AEC0 !important',
+                              bg: isSelected ? '#90CDF4' : '#EDF2F7',
+                            },
+                            '&:focus': {
+                              border: '1px solid !important',
+                              borderColor: isSelected ? '#3182CE !important' : '#A0AEC0 !important',
+                              outline: 'none',
+                              boxShadow: 'none',
+                            },
+                            '&:focus-visible': {
+                              border: '1px solid !important',
+                              borderColor: isSelected ? '#3182CE !important' : '#A0AEC0 !important',
+                              outline: 'none',
+                              boxShadow: 'none',
+                            },
+                          }}
+                        >
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </Box>
+                      );
+                    })}
+                  </HStack>
+                </Box>
+
+                {/* SLA Hours */}
+                <HStack spacing={4}>
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="sm">SLA Hours</FormLabel>
+                    <Input
+                      type="number"
+                      value={formData.assignment_rules?.sla_hours || ''}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          assignment_rules: {
+                            ...formData.assignment_rules,
+                            sla_hours: e.target.value ? parseInt(e.target.value) : undefined
+                          }
+                        });
+                      }}
+                      placeholder="48"
+                      size="sm"
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                  </FormControl>
+
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="sm">Escalation Hours</FormLabel>
+                    <Input
+                      type="number"
+                      value={formData.assignment_rules?.escalation_hours || ''}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          assignment_rules: {
+                            ...formData.assignment_rules,
+                            escalation_hours: e.target.value ? parseInt(e.target.value) : undefined
+                          }
+                        });
+                      }}
+                      placeholder="72"
+                      size="sm"
+                      variant="outline"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      _focus={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _focusVisible={{ borderColor: 'gray.400', boxShadow: 'none', borderWidth: '1px' }}
+                      _hover={{ borderColor: 'gray.400' }}
+                    />
+                  </FormControl>
+                </HStack>
+
+                {/* Special Requirements */}
+                <Box>
+                  <FormLabel fontSize="sm" fontWeight="medium" mb={2}>Special Requirements</FormLabel>
+                  <VStack align="stretch" spacing={2}>
+                    {[
+                      { key: 'requires_compliance_certification', label: 'Requires Compliance Certification' },
+                      { key: 'requires_medical_license', label: 'Requires Medical License' },
+                      { key: 'requires_hr_approval', label: 'Requires HR Approval' },
+                      { key: 'requires_legal_approval_for_high_risk', label: 'Requires Legal Approval for High Risk' },
+                      { key: 'requires_technical_approval', label: 'Requires Technical Approval' },
+                      { key: 'requires_financial_expert', label: 'Requires Financial Expert' }
+                    ].map((req) => (
+                      <Checkbox
+                        key={req.key}
+                        isChecked={formData.assignment_rules?.[req.key] || false}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            assignment_rules: {
+                              ...formData.assignment_rules,
+                              [req.key]: e.target.checked
+                            }
+                          });
+                        }}
+                        size="sm"
+                      >
+                        <Text fontSize="sm">{req.label}</Text>
+                      </Checkbox>
+                    ))}
+                  </VStack>
+                </Box>
+              </VStack>
             </FormControl>
 
             <Divider />

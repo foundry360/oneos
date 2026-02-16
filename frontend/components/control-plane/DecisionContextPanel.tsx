@@ -43,6 +43,7 @@ interface DecisionContextPanelProps {
   onClose: () => void;
   onAction: (action: DecisionAction, justification: string) => void;
   onCollapseChange?: (isCollapsed: boolean) => void;
+  isCollapsed?: boolean;
 }
 
 export default function DecisionContextPanel({
@@ -50,15 +51,14 @@ export default function DecisionContextPanel({
   onClose,
   onAction,
   onCollapseChange,
+  isCollapsed = false,
 }: DecisionContextPanelProps) {
   const [justification, setJustification] = useState('');
   const [pendingAction, setPendingAction] = useState<DecisionAction | null>(null);
-  const [isJudgmentExpanded, setIsJudgmentExpanded] = useState(true);
+  const isJudgmentExpanded = !isCollapsed;
   
   const handleToggle = () => {
-    const newState = !isJudgmentExpanded;
-    setIsJudgmentExpanded(newState);
-    onCollapseChange?.(!newState); // Pass collapsed state (inverse of expanded)
+    onCollapseChange?.(!isCollapsed); // Pass collapsed state (inverse of expanded)
   };
   const { isOpen, onOpen, onClose: onCloseModal } = useDisclosure();
 
@@ -155,7 +155,7 @@ export default function DecisionContextPanel({
 
   return (
     <Box
-      width={isJudgmentExpanded ? "30%" : "64px"}
+      width={isJudgmentExpanded ? "35%" : "48px"}
       bg={isJudgmentExpanded ? "white" : "gray.50"}
       borderLeft="1px solid"
       borderColor="gray.200"
@@ -178,7 +178,7 @@ export default function DecisionContextPanel({
         top={0}
         bg={isJudgmentExpanded ? "white" : "gray.50"}
         zIndex={1}
-        minW="64px"
+        minW="48px"
         minH="48px"
         h="48px"
       >

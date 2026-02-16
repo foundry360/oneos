@@ -1,7 +1,42 @@
-const OpenAIAdapter = require('./openaiAdapter');
-const AnthropicAdapter = require('./anthropicAdapter');
-const CustomLLMAdapter = require('./customAdapter');
+// Lazy load adapters to prevent server crash if dependencies are missing
+let OpenAIAdapter, AnthropicAdapter, CustomLLMAdapter;
 const logger = require('../../utils/logger');
+
+function loadOpenAIAdapter() {
+  if (!OpenAIAdapter) {
+    try {
+      OpenAIAdapter = require('./openaiAdapter');
+    } catch (error) {
+      logger.error('Failed to load OpenAI adapter', { error: error.message });
+      throw new Error(`OpenAI adapter not available: ${error.message}`);
+    }
+  }
+  return OpenAIAdapter;
+}
+
+function loadAnthropicAdapter() {
+  if (!AnthropicAdapter) {
+    try {
+      AnthropicAdapter = require('./anthropicAdapter');
+    } catch (error) {
+      logger.error('Failed to load Anthropic adapter', { error: error.message });
+      throw new Error(`Anthropic adapter not available: ${error.message}`);
+    }
+  }
+  return AnthropicAdapter;
+}
+
+function loadCustomAdapter() {
+  if (!CustomLLMAdapter) {
+    try {
+      CustomLLMAdapter = require('./customAdapter');
+    } catch (error) {
+      logger.error('Failed to load Custom adapter', { error: error.message });
+      throw new Error(`Custom adapter not available: ${error.message}`);
+    }
+  }
+  return CustomLLMAdapter;
+}
 
 class LLMAdapterFactory {
   /**
@@ -16,19 +51,19 @@ class LLMAdapterFactory {
 
     switch (provider) {
       case 'openai':
-        return new OpenAIAdapter(config);
+        return new (loadOpenAIAdapter())(config);
       
       case 'anthropic':
       case 'claude':
-        return new AnthropicAdapter(config);
+        return new (loadAnthropicAdapter())(config);
       
       case 'custom':
-        return new CustomLLMAdapter(config);
+        return new (loadCustomAdapter())(config);
       
       default:
         // Try custom adapter for unknown providers
         logger.warn('Unknown LLM provider, using custom adapter', { provider });
-        return new CustomLLMAdapter(config);
+        return new (loadCustomAdapter())(config);
     }
   }
 

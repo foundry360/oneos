@@ -298,6 +298,7 @@ export default function ControlPlanePage() {
           onClose={() => setSelectedDecision(null)}
           onAction={handleAction}
           onCollapseChange={setIsJudgmentPanelCollapsed}
+          isCollapsed={isJudgmentPanelCollapsed}
         />
       </Box>
 

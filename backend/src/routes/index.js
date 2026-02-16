@@ -11,6 +11,7 @@ const governanceProfilesRouter = require('./governanceProfiles');
 const blockchainRouter = require('./blockchain');
 const llmRouter = require('./llm');
 const customersRouter = require('./customers');
+const usersRouter = require('./users');
 
 router.use('/auth', authRouter);
 router.use('/files', filesRouter);
@@ -22,6 +23,7 @@ router.use('/governance-profiles', governanceProfilesRouter);
 router.use('/blockchain', blockchainRouter);
 router.use('/llm', llmRouter);
 router.use('/customers', customersRouter);
+router.use('/users', usersRouter);
 
 module.exports = router;
 

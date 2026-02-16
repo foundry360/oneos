@@ -54,19 +54,26 @@
      * Complete a prompt with governance enforcement
      * @param {Object} options - Prompt options
      * @param {string} options.prompt - The prompt text
+     * @param {string} options.userId - REQUIRED: Your internal user identifier (e.g., employee ID, username)
+     * @param {string} [options.userEmail] - Optional: User's email address
+     * @param {string} [options.displayName] - Optional: User's display name
      * @param {string} [options.model='gpt-4'] - Model name
      * @param {string} [options.provider='openai'] - LLM provider
      * @param {string} [options.domain] - Domain for governance profile selection
      * @param {Object} [options.llmOptions] - Additional LLM options (temperature, maxTokens, etc.)
      * @returns {Promise<Object>} Response with text and metadata
      */
-    async complete({ prompt, model = 'gpt-4', provider = 'openai', domain, ...llmOptions }) {
+    async complete({ prompt, userId, userEmail, displayName, model = 'gpt-4', provider = 'openai', domain, ...llmOptions }) {
       if (!this.apiKey) {
         throw new Error('GOVERNANCE_API_KEY is required. Set it via environment variable or constructor.');
       }
       
       if (!prompt || typeof prompt !== 'string') {
         throw new Error('Prompt is required and must be a string');
+      }
+      
+      if (!userId || typeof userId !== 'string') {
+        throw new Error('userId is required and must be a string. Provide your internal user identifier (e.g., employee ID, username).');
       }
       
       const fetch = this._getFetch();
@@ -80,6 +87,9 @@
           },
           body: JSON.stringify({
             prompt,
+            userId,        // REQUIRED: Customer's internal user ID
+            userEmail,     // Optional: Customer's internal user email
+            displayName,   // Optional: User's display name
             modelName: model,
             provider,
             domain: domain || this.domain,
