@@ -144,7 +144,7 @@ export default function UsersPage() {
     <DashboardLayout>
       <Box p={8}>
         <HStack justify="space-between" mb={6}>
-          <Heading size="lg" color="gray.800" fontWeight="600">User Management</Heading>
+          <Heading size="md" color="gray.800" fontWeight="600">User Management</Heading>
           <Button
             leftIcon={<Plus size={14} />}
             colorScheme="blue"
@@ -330,7 +330,13 @@ export default function UsersPage() {
                       <Td>{user.email}</Td>
                       <Td>{user.display_name || '-'}</Td>
                       <Td>
-                        <Badge colorScheme={getRoleColor(user.role)}>
+                        <Badge 
+                          colorScheme={getRoleColor(user.role)} 
+                          size="sm"
+                          fontSize="10px"
+                          px={2}
+                          py={0.5}
+                        >
                           {user.role}
                         </Badge>
                       </Td>

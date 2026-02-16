@@ -341,6 +341,7 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                       zIndex={10}
                       maxH="200px"
                       overflowY="auto"
+                      className="scrollbar-hover"
                     >
                       <VStack align="stretch" spacing={0}>
                         {getFilteredDomains(domainInputValue).map((option, index) => (
@@ -1051,6 +1052,7 @@ const ProfileForm = forwardRef<{ save: () => Promise<void> }, ProfileFormProps>(
                     zIndex={10}
                     maxH="200px"
                     overflowY="auto"
+                    className="scrollbar-hover"
                   >
                     <VStack align="stretch" spacing={0}>
                       {getFilteredDomains(domainInputValue).map((option, index) => (

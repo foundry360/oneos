@@ -56,10 +56,16 @@ interface ProfileViewProps {
   onEdit?: () => void;
   onRefresh?: () => void;
   onCollapseChange?: (isCollapsed: boolean) => void;
+  isCollapsed?: boolean;
 }
 
-export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdmin = false, onCreateNewVersion, onCollapseChange }: ProfileViewProps) {
-  const [isHighlightsExpanded, setIsHighlightsExpanded] = useState(true);
+export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdmin = false, onCreateNewVersion, onCollapseChange, isCollapsed = true }: ProfileViewProps) {
+  const [isHighlightsExpanded, setIsHighlightsExpanded] = useState(!isCollapsed);
+  
+  // Sync local state with prop changes
+  useEffect(() => {
+    setIsHighlightsExpanded(!isCollapsed);
+  }, [isCollapsed]);
   
   const handleToggle = () => {
     const newState = !isHighlightsExpanded;
@@ -520,7 +526,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
         <HStack spacing={2} alignItems="center" h="100%" flex={1} justifyContent={isHighlightsExpanded ? "space-between" : "center"}>
           {isHighlightsExpanded && (
             <Text fontSize="sm" fontWeight="600" color="gray.900" letterSpacing="0.01em" lineHeight="1.2">
-              Profile Highlights
+              Profile Summary
             </Text>
           )}
           <Box
@@ -532,7 +538,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
             justifyContent="center"
             color="gray.600"
             _hover={{ color: 'gray.900' }}
-            aria-label={isHighlightsExpanded ? 'Collapse highlights' : 'Expand highlights'}
+            aria-label={isHighlightsExpanded ? 'Collapse summary' : 'Expand summary'}
             bg="transparent"
             border="none"
             p={0}
@@ -569,7 +575,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
       ) : (
         /* Content */
         isHighlightsExpanded && (
-          <Box flex="1" overflowY="auto" px={8} pt={4} pb={8}>
+          <Box flex="1" overflowY="auto" px={8} pt={4} pb={8} className="scrollbar-hover">
           <VStack spacing={2} align="stretch">
         <VStack align="stretch" spacing={4} pt={0} mt={-2}>
           {/* Profile Name */}
@@ -798,6 +804,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                 border="1px solid"
                 borderColor="gray.200"
                 overflowX="auto"
+                className="scrollbar-hover"
               >
                 <Table variant="simple" size="sm" minW="100%">
                   <Thead>
@@ -912,6 +919,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
                 border="1px solid"
                 borderColor="gray.200"
                 overflowX="auto"
+                className="scrollbar-hover"
               >
                 <Table variant="simple" size="sm" minW="100%">
                   <Thead>
@@ -2148,7 +2156,7 @@ export default function ProfileView({ profile, onClose, onEdit, onRefresh, isAdm
           <ModalHeader>Audit History</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
+            <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto" className="scrollbar-hover">
               {auditHistory.map((entry) => (
                 <Box key={entry.id} p={3} bg="gray.50" borderRadius="md">
                   <HStack justify="space-between" mb={1}>

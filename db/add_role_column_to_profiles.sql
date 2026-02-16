@@ -44,3 +44,4 @@ ORDER BY created_at DESC;
 -- Add comment
 COMMENT ON COLUMN profiles.role IS 'User role: admin, governance, reviewer, user, or system';
 
+

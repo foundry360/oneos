@@ -16,7 +16,7 @@ type ViewMode = 'list' | 'view' | 'create' | 'edit';
 export default function GovernanceProfilesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProfile, setSelectedProfile] = useState<GovernanceProfile | null>(null);
-  const [isHighlightsPanelCollapsed, setIsHighlightsPanelCollapsed] = useState(false);
+  const [isHighlightsPanelCollapsed, setIsHighlightsPanelCollapsed] = useState(true);
   const { profiles, fetchProfiles, createProfile, updateProfile, fetchProfile } = useGovernanceProfiles();
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
@@ -58,12 +58,15 @@ export default function GovernanceProfilesPage() {
       
       setSelectedProfile(mostRecent);
       setViewMode('view');
+      // Keep panel collapsed on auto-selection - only expand on manual click
     }
   }, [profiles, selectedProfile, viewMode]);
 
   const handleSelectProfile = (profile: GovernanceProfile) => {
     setSelectedProfile(profile);
     setViewMode('view');
+    // Expand highlights panel when a profile is selected
+    setIsHighlightsPanelCollapsed(false);
   };
 
   const handleCreateNew = () => {
@@ -173,25 +176,28 @@ export default function GovernanceProfilesPage() {
           display="flex"
           flexDirection="column"
           overflowY="auto"
+          className="scrollbar-hover"
           transition="width 0.2s ease"
         >
           <ProfileList
             onSelectProfile={handleSelectProfile}
             selectedProfile={selectedProfile}
+            isHighlightsPanelCollapsed={isHighlightsPanelCollapsed}
           />
         </Box>
 
         {/* Panel 2: Profile Details (Right - 30%) */}
         <Box
           width={isHighlightsPanelCollapsed ? "64px" : "30%"}
-          bg="white"
+          bg={isHighlightsPanelCollapsed ? "gray.50" : "white"}
           borderLeft="1px solid"
           borderColor="gray.200"
           height="100%"
           display="flex"
           flexDirection="column"
           overflowY="auto"
-          transition="width 0.2s ease"
+          className="scrollbar-hover"
+          transition="width 0.2s ease, background-color 0.2s ease"
         >
           {viewMode === 'view' && selectedProfile && (
             <ProfileView
@@ -202,6 +208,7 @@ export default function GovernanceProfilesPage() {
               isAdmin={canCreateVersion}
               onCreateNewVersion={handleCreateNewVersion}
               onCollapseChange={setIsHighlightsPanelCollapsed}
+              isCollapsed={isHighlightsPanelCollapsed}
             />
           )}
 
@@ -244,7 +251,7 @@ export default function GovernanceProfilesPage() {
             </Box>
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody px={6} pt={5} pb={6} flex="1" overflowY="auto" minH={0}>
+          <ModalBody px={6} pt={5} pb={6} flex="1" overflowY="auto" minH={0} className="scrollbar-hover">
             <ProfileForm
               ref={profileFormSaveRef}
               profile={null}

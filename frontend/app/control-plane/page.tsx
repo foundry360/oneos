@@ -18,97 +18,88 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Box, Heading, Divider, Text, HStack, IconButton, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, useDisclosure, VStack, Textarea, Button } from '@chakra-ui/react';
+import { Box, Heading, Divider, Text, HStack, IconButton, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, useDisclosure, VStack, Textarea, Button, Spinner } from '@chakra-ui/react';
 import { Share2, Download, Maximize2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import DecisionScopePanel from '@/components/control-plane/DecisionScopePanel';
 import DecisionWorkspace from '@/components/control-plane/DecisionWorkspace';
 import DecisionContextPanel from '@/components/control-plane/DecisionContextPanel';
 import { Decision, DecisionScope, ActionMode, DecisionStatus, RiskLevel, DecisionAction } from '@/components/control-plane/types';
-import { mockDecisions } from '@/components/control-plane/mockData';
 import { ChevronsUp, ChevronDown } from 'lucide-react';
+import { useDecisions } from '@/hooks/useDecisions';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 
 export default function ControlPlanePage() {
+  const { user } = useAuth();
+  const { profile } = useProfile(user?.id);
+  const { decisions, loading: decisionsLoading, fetchDecisions, takeAction } = useDecisions();
+  
   const [selectedScope, setSelectedScope] = useState<DecisionScope | null>(null);
   const [selectedActionMode, setSelectedActionMode] = useState<ActionMode | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<Decision | null>(null);
-  const [isJudgmentPanelCollapsed, setIsJudgmentPanelCollapsed] = useState(false);
+  const [isJudgmentPanelCollapsed, setIsJudgmentPanelCollapsed] = useState(true);
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<DecisionStatus | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel | null>(null);
   const { isOpen: isJudgmentModalOpen, onOpen: onJudgmentModalOpen, onClose: onJudgmentModalClose } = useDisclosure();
 
-  // Filter decisions based on scope and action mode
+  // Fetch decisions when filters change
+  useEffect(() => {
+    if (user && profile) {
+      fetchDecisions({
+        scope: selectedScope || undefined,
+        actionMode: selectedActionMode || undefined,
+        status: statusFilter || undefined,
+        riskLevel: riskFilter || undefined,
+        search: searchFilter || undefined
+      });
+    }
+  }, [selectedScope, selectedActionMode, statusFilter, riskFilter, searchFilter, user, profile, fetchDecisions]);
+
+  // Filter decisions based on scope and action mode (client-side filtering for additional refinement)
   const filteredDecisions = useMemo(() => {
-    let filtered = [...mockDecisions];
+    let filtered = [...decisions];
 
-    // Apply scope filters
-    if (selectedScope) {
-      switch (selectedScope) {
-        case 'my-assigned':
-          filtered = filtered.filter((d) => d.assignedTo !== null);
-          break;
-        case 'unassigned':
-          filtered = filtered.filter((d) => d.assignedTo === null);
-          break;
-        case 'escalated':
-          filtered = filtered.filter((d) => d.status === 'escalated');
-          break;
-        case 'high-risk':
-          filtered = filtered.filter((d) => d.riskLevel === 'high');
-          break;
-        case 'medium-risk':
-          filtered = filtered.filter((d) => d.riskLevel === 'medium');
-          break;
-      }
-    }
-
-    // Apply action mode filters
-    if (selectedActionMode) {
-      switch (selectedActionMode) {
-        case 'review':
-          filtered = filtered.filter((d) => d.status === 'pending' || d.status === 'in-review');
-          break;
-        case 'approvals':
-          filtered = filtered.filter((d) => d.status === 'pending' && d.aiRecommendation.action === 'approve');
-          break;
-        case 'overrides':
-          filtered = filtered.filter((d) => {
-            // Overrides are decisions where human action differs from AI recommendation
-            // For now, show all pending decisions
-            return d.status === 'pending';
-          });
-          break;
-      }
-    }
-
+    // Additional client-side filtering (most filtering is done server-side)
+    // This is mainly for UI state consistency
+    
     return filtered;
-  }, [selectedScope, selectedActionMode]);
+  }, [decisions, selectedScope, selectedActionMode]);
 
   // Note: Auto-selection is handled in DecisionWorkspace component
   // which has the final filtered list after all filters are applied
 
-  const handleAction = (action: DecisionAction, justification: string) => {
-    // In production, this would make an API call
-    console.log('Action taken:', {
-      decisionId: selectedDecision?.id,
-      action,
-      justification,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Update the decision status (in production, this would come from the API response)
-    if (selectedDecision) {
-      const updatedDecision: Decision = {
-        ...selectedDecision,
-        status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'escalated',
-        updatedAt: new Date().toISOString(),
-      };
-      // In a real app, you'd update the state/API here
+  // Handle decision selection - expand panel when a decision is selected
+  const handleSelectDecision = (decision: Decision | null) => {
+    setSelectedDecision(decision);
+    // Expand judgment panel when a decision is selected
+    if (decision) {
+      setIsJudgmentPanelCollapsed(false);
     }
+  };
 
-    // Clear selection after action
-    setSelectedDecision(null);
+  const handleAction = async (action: DecisionAction, justification: string) => {
+    if (!selectedDecision) return;
+
+    try {
+      await takeAction(selectedDecision.id, action, justification);
+      
+      // Clear selection after action
+      setSelectedDecision(null);
+      
+      // Refresh decisions
+      await fetchDecisions({
+        scope: selectedScope || undefined,
+        actionMode: selectedActionMode || undefined,
+        status: statusFilter || undefined,
+        riskLevel: riskFilter || undefined,
+        search: searchFilter || undefined
+      });
+    } catch (error: any) {
+      console.error('Failed to take action:', error);
+      // Error handling could be improved with toast notifications
+    }
   };
 
   const handleShare = () => {
@@ -180,6 +171,18 @@ export default function ControlPlanePage() {
       );
     }
   };
+
+  // Show loading state
+  if (decisionsLoading && decisions.length === 0) {
+    return (
+      <DashboardLayout>
+        <Box p={8} textAlign="center">
+          <Spinner size="xl" />
+          <Text mt={4}>Loading decisions...</Text>
+        </Box>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -275,14 +278,14 @@ export default function ControlPlanePage() {
           selectedActionMode={selectedActionMode}
           onScopeChange={setSelectedScope}
           onActionModeChange={setSelectedActionMode}
-          decisions={mockDecisions}
+          decisions={decisions}
         />
 
         {/* Panel 2: Decision Workspace (Center) */}
         <DecisionWorkspace
           decisions={filteredDecisions}
           selectedDecision={selectedDecision}
-          onSelectDecision={setSelectedDecision}
+          onSelectDecision={handleSelectDecision}
           searchFilter={searchFilter}
           onSearchChange={setSearchFilter}
           statusFilter={statusFilter}
@@ -316,7 +319,7 @@ export default function ControlPlanePage() {
             Judgment - {selectedDecision?.id}
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody overflowY="auto" pb={6}>
+          <ModalBody overflowY="auto" pb={6} className="scrollbar-hover">
             {selectedDecision ? (
               <VStack align="stretch" spacing={6}>
                 {/* Decision ID and Risk */}
@@ -358,10 +361,10 @@ export default function ControlPlanePage() {
 
                 <Divider borderColor="gray.200" />
 
-                {/* AI Recommendation */}
+                {/* Risk-Based Recommendation */}
                 <Box>
                   <Text fontSize="xs" fontWeight="600" color="gray.600" mb={2} textTransform="uppercase" letterSpacing="0.05em">
-                    AI Recommendation
+                    Risk-Based Recommendation
                   </Text>
                   <HStack mb={2}>
                     <Text

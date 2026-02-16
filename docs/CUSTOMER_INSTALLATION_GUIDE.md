@@ -60,12 +60,20 @@ const { governLLM } = require('./govern-llm.js');
 
 const response = await governLLM.complete({
   prompt: prompt,
+  userId: 'user123',  // REQUIRED: Your internal user identifier
   model: 'gpt-4',
   provider: 'openai'
 });
 
-console.log(response.text); // LLM response
-console.log(response.metadata); // Governance metadata
+if (response.status === 'pending_review') {
+  // Prompt requires review - wait for approval
+  const finalResponse = await response.waitForApproval();
+  console.log(finalResponse.text); // LLM response after approval
+} else {
+  // Auto-approved
+  console.log(response.text); // LLM response
+  console.log(response.metadata); // Governance metadata
+}
 ```
 
 **That's it!** Your LLM calls are now governed.
@@ -118,15 +126,23 @@ const { governLLM } = require('./govern-llm.js');
 try {
   const response = await governLLM.complete({
     prompt: 'What is artificial intelligence?',
+    userId: 'user123',
     model: 'gpt-4',
     provider: 'openai'
   });
   
-  console.log('Response:', response.text);
-  console.log('Risk Level:', response.metadata.riskLevel);
+  if (response.status === 'pending_review') {
+    console.log('Prompt requires review. Request ID:', response.requestId);
+    // Wait for approval
+    const finalResponse = await response.waitForApproval();
+    console.log('Response:', finalResponse.text);
+  } else {
+    console.log('Response:', response.text);
+    console.log('Risk Level:', response.metadata.riskLevel);
+  }
 } catch (error) {
-  if (error.status === 'pending_review') {
-    console.log('Prompt requires review. Request ID:', error.requestId);
+  if (error.status === 'rejected') {
+    console.error('Prompt rejected:', error.message);
   } else {
     console.error('Error:', error.message);
   }
@@ -146,8 +162,17 @@ const llm = new GovernLLM({
 
 const response = await llm.complete({
   prompt: 'Analyze this financial document...',
+  userId: 'user123',
   model: 'gpt-4'
 });
+
+if (response.status === 'pending_review') {
+  // Handle review required
+  const finalResponse = await response.waitForApproval();
+  console.log(finalResponse.text);
+} else {
+  console.log(response.text);
+}
 ```
 
 ### With LLM Options
@@ -161,17 +186,69 @@ const response = await governLLM.complete({
 });
 ```
 
+### Handling Review Required Status
+
+When a prompt requires review, the SDK returns a structured response instead of throwing an error:
+
+```javascript
+const response = await governLLM.complete({
+  prompt: 'Analyze sensitive financial data...',
+  userId: 'user123',
+  model: 'gpt-4'
+});
+
+if (response.status === 'pending_review') {
+  // Show "Under Review" message to user
+  console.log('Your prompt is under review. Request ID:', response.requestId);
+  console.log('Risk Level:', response.riskLevel);
+  
+  // Option 1: Poll manually
+  const checkStatus = async () => {
+    const status = await governLLM.checkStatus(response.requestId);
+    console.log('Current status:', status.status);
+    return status;
+  };
+  
+  // Option 2: Wait automatically (recommended)
+  try {
+    const finalResponse = await response.waitForApproval({
+      interval: 2000,        // Check every 2 seconds
+      timeout: 300000,        // Wait up to 5 minutes
+      onStatusChange: (status) => {
+        console.log('Status update:', status.status);
+        // Update UI with current status
+      }
+    });
+    
+    // Prompt was approved and processed
+    console.log('Response:', finalResponse.text);
+  } catch (error) {
+    if (error.status === 'rejected') {
+      console.error('Prompt was rejected:', error.message);
+    } else {
+      console.error('Error waiting for approval:', error.message);
+    }
+  }
+} else if (response.status === 'completed') {
+  // Prompt was auto-approved
+  console.log('Response:', response.text);
+}
+```
+
 ### Error Handling
 
 ```javascript
 try {
-  const response = await governLLM.complete({ prompt: '...' });
+  const response = await governLLM.complete({ prompt: '...', userId: 'user123' });
+  
+  if (response.status === 'pending_review') {
+    // Handle review required (see above)
+  } else {
+    // Auto-approved
+    console.log('Response:', response.text);
+  }
 } catch (error) {
-  if (error.status === 'pending_review') {
-    // Prompt requires human review
-    console.log('Review required for request:', error.requestId);
-    // Poll for status or notify user
-  } else if (error.status === 'rejected') {
+  if (error.status === 'rejected') {
     // Prompt was rejected by governance
     console.error('Prompt rejected:', error.message);
   } else {
@@ -206,10 +283,11 @@ const llm = new GovernLLM({
 
 ## Response Format
 
-### Success Response
+### Success Response (Auto-Approved)
 
 ```javascript
 {
+  status: "completed",
   text: "LLM response text...",
   requestId: "uuid-here",
   metadata: {
@@ -223,13 +301,17 @@ const llm = new GovernLLM({
 }
 ```
 
-### Review Required Error
+### Review Required Response
 
 ```javascript
 {
-  message: "Prompt requires human review before processing",
   status: "pending_review",
-  requestId: "uuid-here"
+  requestId: "uuid-here",
+  message: "Prompt submitted for human review",
+  riskLevel: "high",
+  riskScore: 0.85,
+  checkStatus: Function,      // Helper: await response.checkStatus()
+  waitForApproval: Function    // Helper: await response.waitForApproval(options)
 }
 ```
 
@@ -244,6 +326,51 @@ const llm = new GovernLLM({
 ```
 
 ---
+
+## Status Polling Methods
+
+### `checkStatus(requestId)`
+
+Manually check the status of a prompt request:
+
+```javascript
+const status = await governLLM.checkStatus('request-id-here');
+console.log('Status:', status.status); // 'pending_review', 'completed', 'rejected'
+console.log('Response:', status.responseText); // Available when completed
+```
+
+### `waitForApproval(requestId, options)`
+
+Automatically poll until the prompt is approved or rejected:
+
+```javascript
+const response = await governLLM.complete({
+  prompt: '...',
+  userId: 'user123'
+});
+
+if (response.status === 'pending_review') {
+  try {
+    const finalResponse = await response.waitForApproval({
+      interval: 2000,        // Poll every 2 seconds (default)
+      timeout: 300000,        // Wait up to 5 minutes (default)
+      onStatusChange: (status) => {
+        // Called on each poll
+        updateUI(status);
+      }
+    });
+    
+    // Prompt approved and processed
+    console.log('Response:', finalResponse.text);
+  } catch (error) {
+    if (error.status === 'rejected') {
+      console.error('Rejected:', error.message);
+    } else {
+      console.error('Timeout or error:', error.message);
+    }
+  }
+}
+```
 
 ## Supported Providers
 

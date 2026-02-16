@@ -484,7 +484,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </Box>
 
         {/* Page Content */}
-        <Box flex={1} overflowY="auto" bg="#fefefe" p={8}>
+        <Box flex={1} overflowY="auto" bg="#fefefe" p={8} className="scrollbar-hover">
           <Box bg="white" borderRadius="md" boxShadow="sm" p={6}>
             {children}
           </Box>

@@ -27,7 +27,7 @@ export default function TokenizedPage() {
         {loading ? (
           <Spinner size="xl" />
         ) : (
-          <Box overflowX="auto" border="1px solid" borderColor="gray.200" borderRadius="md" boxShadow="sm" bg="white">
+          <Box overflowX="auto" border="1px solid" borderColor="gray.200" borderRadius="md" boxShadow="sm" bg="white" className="scrollbar-hover">
             <Table variant="simple" size="sm">
               <Thead bg="gray.50">
                 <Tr>

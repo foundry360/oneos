@@ -263,6 +263,45 @@ export default function DecisionWorkspace({
   const statusOptions: DecisionStatus[] = ['pending', 'in-review', 'escalated', 'approved', 'rejected'];
   const riskOptions: RiskLevel[] = ['high', 'medium', 'low'];
 
+  // Helper function to format relative time
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Helper function to calculate time in current status
+  const getTimeInStatus = (decision: Decision): string => {
+    const updatedAt = new Date(decision.updatedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - updatedAt.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    const statusText = decision.status.charAt(0).toUpperCase() + decision.status.slice(1).replace('-', ' ');
+
+    if (diffMins < 60) return `${statusText} for ${diffMins}m`;
+    if (diffHours < 24) return `${statusText} for ${diffHours}h`;
+    if (diffDays < 7) return `${statusText} for ${diffDays}d`;
+    return `${statusText} for ${diffDays}d`;
+  };
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
   return (
     <Box
       width={isJudgmentPanelCollapsed ? "calc(88% - 48px)" : "55%"}
@@ -549,7 +588,7 @@ export default function DecisionWorkspace({
       </Box>
 
       {/* Decision Table */}
-      <Box flex="1" overflowY="auto">
+      <Box flex="1" overflowY="auto" className="scrollbar-hover">
         <Table variant="simple" size="sm">
           <Thead bg="transparent" position="sticky" top={0} zIndex={1}>
             <Tr>
@@ -563,6 +602,7 @@ export default function DecisionWorkspace({
                 letterSpacing="0.05em"
                 borderBottom="1px solid"
                 borderColor="gray.200"
+                whiteSpace="nowrap"
               >
                 <HStack spacing={1.5} alignItems="center">
                   <Text>Decision ID</Text>
@@ -573,6 +613,29 @@ export default function DecisionWorkspace({
                   </Tooltip>
                 </HStack>
               </Th>
+              {isJudgmentPanelCollapsed && (
+                <Th
+                  px={8}
+                  py={4}
+                  fontSize="xs"
+                  fontWeight="600"
+                  color="gray.700"
+                  textTransform="uppercase"
+                  letterSpacing="0.05em"
+                  borderBottom="1px solid"
+                  borderColor="gray.200"
+                  whiteSpace="nowrap"
+                >
+                  <HStack spacing={1.5} alignItems="center">
+                    <Text>Title</Text>
+                    <Tooltip label="Brief description of the decision" placement="top" fontSize="xs">
+                      <Box as="span" display="inline-flex" alignItems="center" cursor="help">
+                        <Info size={12} style={{ color: '#9CA3AF' }} />
+                      </Box>
+                    </Tooltip>
+                  </HStack>
+                </Th>
+              )}
               <Th
                 px={8}
                 py={4}
@@ -583,6 +646,7 @@ export default function DecisionWorkspace({
                 letterSpacing="0.05em"
                 borderBottom="1px solid"
                 borderColor="gray.200"
+                whiteSpace="nowrap"
               >
                 <HStack spacing={1.5} alignItems="center">
                   <Text>Risk Level</Text>
@@ -603,6 +667,7 @@ export default function DecisionWorkspace({
                 letterSpacing="0.05em"
                 borderBottom="1px solid"
                 borderColor="gray.200"
+                whiteSpace="nowrap"
               >
                 <HStack spacing={1.5} alignItems="center">
                   <Text>Type</Text>
@@ -623,6 +688,7 @@ export default function DecisionWorkspace({
                 letterSpacing="0.05em"
                 borderBottom="1px solid"
                 borderColor="gray.200"
+                whiteSpace="nowrap"
               >
                 <HStack spacing={1.5} alignItems="center">
                   <Text>Status</Text>
@@ -643,6 +709,7 @@ export default function DecisionWorkspace({
                 letterSpacing="0.05em"
                 borderBottom="1px solid"
                 borderColor="gray.200"
+                whiteSpace="nowrap"
               >
                 <HStack spacing={1.5} alignItems="center">
                   <Text>Assigned To</Text>
@@ -653,12 +720,79 @@ export default function DecisionWorkspace({
                   </Tooltip>
                 </HStack>
               </Th>
+              {isJudgmentPanelCollapsed && (
+                <>
+                  <Th
+                    px={8}
+                    py={4}
+                    fontSize="xs"
+                    fontWeight="600"
+                    color="gray.700"
+                    textTransform="uppercase"
+                    letterSpacing="0.05em"
+                    borderBottom="1px solid"
+                    borderColor="gray.200"
+                    whiteSpace="nowrap"
+                  >
+                    <HStack spacing={1.5} alignItems="center">
+                      <Text>Risk-Based Recommendation</Text>
+                      <Tooltip label="AI's suggested action with confidence level" placement="top" fontSize="xs">
+                        <Box as="span" display="inline-flex" alignItems="center" cursor="help">
+                          <Info size={12} style={{ color: '#9CA3AF' }} />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
+                  </Th>
+                  <Th
+                    px={8}
+                    py={4}
+                    fontSize="xs"
+                    fontWeight="600"
+                    color="gray.700"
+                    textTransform="uppercase"
+                    letterSpacing="0.05em"
+                    borderBottom="1px solid"
+                    borderColor="gray.200"
+                    whiteSpace="nowrap"
+                  >
+                    <HStack spacing={1.5} alignItems="center">
+                      <Text>Created</Text>
+                      <Tooltip label="When this decision was created" placement="top" fontSize="xs">
+                        <Box as="span" display="inline-flex" alignItems="center" cursor="help">
+                          <Info size={12} style={{ color: '#9CA3AF' }} />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
+                  </Th>
+                  <Th
+                    px={8}
+                    py={4}
+                    fontSize="xs"
+                    fontWeight="600"
+                    color="gray.700"
+                    textTransform="uppercase"
+                    letterSpacing="0.05em"
+                    borderBottom="1px solid"
+                    borderColor="gray.200"
+                    whiteSpace="nowrap"
+                  >
+                    <HStack spacing={1.5} alignItems="center">
+                      <Text>Time in Status</Text>
+                      <Tooltip label="How long the decision has been in its current status" placement="top" fontSize="xs">
+                        <Box as="span" display="inline-flex" alignItems="center" cursor="help">
+                          <Info size={12} style={{ color: '#9CA3AF' }} />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
+                  </Th>
+                </>
+              )}
             </Tr>
           </Thead>
           <Tbody>
             {paginatedDecisions.length === 0 ? (
               <Tr>
-                <Td colSpan={5} px={8} py={8} textAlign="center">
+                <Td colSpan={isJudgmentPanelCollapsed ? 9 : 5} px={8} py={8} textAlign="center">
                   <Text fontSize="xs" color="gray.500">
                     No decisions match the current filters.
                   </Text>
@@ -684,7 +818,7 @@ export default function DecisionWorkspace({
                   aria-selected={selectedDecision?.id === decision.id}
                   role="row"
                 >
-                  <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200">
+                  <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200" whiteSpace="nowrap">
                     <HStack spacing={2} alignItems="center">
                       <BookCheck size={16} style={{ color: '#6B7280' }} />
                       <Text fontSize="xs" fontWeight="500" color="gray.900">
@@ -692,6 +826,15 @@ export default function DecisionWorkspace({
                       </Text>
                     </HStack>
                   </Td>
+                  {isJudgmentPanelCollapsed && (
+                    <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200">
+                      <Tooltip label={decision.title} placement="top" fontSize="xs">
+                        <Text fontSize="xs" color="gray.700" maxW="200px" isTruncated>
+                          {truncateText(decision.title, 50)}
+                        </Text>
+                      </Tooltip>
+                    </Td>
+                  )}
                   <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200" textAlign="center">
                     <Box display="flex" justifyContent="center" alignItems="center">
                       {getRiskIcon(decision.riskLevel)}
@@ -713,6 +856,50 @@ export default function DecisionWorkspace({
                       {decision.assignedTo || '—'}
                     </Text>
                   </Td>
+                  {isJudgmentPanelCollapsed && (
+                    <>
+                      <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200">
+                        <HStack spacing={2} alignItems="center">
+                          <Badge
+                            fontSize="xs"
+                            colorScheme={
+                              decision.aiRecommendation.action === 'approve'
+                                ? 'green'
+                                : decision.aiRecommendation.action === 'reject'
+                                ? 'red'
+                                : 'orange'
+                            }
+                            textTransform="capitalize"
+                            px={2}
+                            py={0.5}
+                            fontWeight="normal"
+                            color={
+                              decision.aiRecommendation.action === 'approve'
+                                ? 'green.700'
+                                : decision.aiRecommendation.action === 'reject'
+                                ? 'red.700'
+                                : 'orange.700'
+                            }
+                          >
+                            {decision.aiRecommendation.action}
+                          </Badge>
+                          <Text fontSize="xs" color="gray.600">
+                            {decision.aiRecommendation.confidence}%
+                          </Text>
+                        </HStack>
+                      </Td>
+                      <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200">
+                        <Text fontSize="xs" color="gray.600">
+                          {formatRelativeTime(decision.createdAt)}
+                        </Text>
+                      </Td>
+                      <Td px={8} py={4} borderBottom="1px solid" borderColor="gray.200">
+                        <Text fontSize="xs" color="gray.600">
+                          {getTimeInStatus(decision)}
+                        </Text>
+                      </Td>
+                    </>
+                  )}
                 </Tr>
               ))
             )}

@@ -34,6 +34,8 @@ export default function DecisionScopePanel({
   decisions,
 }: DecisionScopePanelProps) {
   // Calculate counts for each scope option
+  // Note: These counts are approximate since filtering happens server-side
+  // For accurate counts, the API should return scope counts
   const scopeCounts = useMemo(() => {
     return {
       'my-assigned': decisions.filter((d) => d.assignedTo !== null).length,
@@ -66,6 +68,7 @@ export default function DecisionScopePanel({
       borderColor="gray.200"
       height="100%"
       overflowY="auto"
+      className="scrollbar-hover"
     >
       <Box
         px={5}

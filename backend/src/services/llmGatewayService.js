@@ -322,7 +322,7 @@ class LLMGatewayService {
   }
 
   /**
-   * Generate AI recommendation based on risk assessment
+   * Generate risk-based recommendation based on risk assessment
    */
   generateAIRecommendation(riskLevel, riskScore, factors) {
     let action = 'approve';
