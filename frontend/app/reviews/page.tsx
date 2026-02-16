@@ -59,14 +59,14 @@ export default function ReviewsPage() {
   return (
     <DashboardLayout>
       <Box>
-        <Heading size="lg" mb={6} color="gray.800" fontWeight="600">
+        <Heading size="md" mb={6} color="gray.800" fontWeight="600">
           Review Tasks
         </Heading>
 
         {loading ? (
           <Spinner size="xl" />
         ) : (
-          <Box overflowX="auto" border="1px solid" borderColor="gray.200" borderRadius="md" boxShadow="sm" bg="white">
+          <Box overflowX="auto" border="1px solid" borderColor="gray.200" borderRadius="md" boxShadow="sm" bg="white" className="scrollbar-hover">
             <Table variant="simple" size="sm">
               <Thead bg="gray.50">
                 <Tr>

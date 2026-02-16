@@ -730,6 +730,7 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
             </Text>
             <Box
               overflowX="auto"
+              className="scrollbar-hover"
             >
               <Table variant="simple" size="sm" minW="100%">
                 <Thead>
@@ -994,7 +995,7 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
                   <HStack justify="space-between" mb={2}>
                     <Text fontSize="sm" fontWeight="500" color="gray.700">Current Version Hash:</Text>
                     <HStack>
-                      <Code fontSize="xs" p={2} borderRadius="md" maxW="400px" overflowX="auto">
+                      <Code fontSize="xs" p={2} borderRadius="md" maxW="400px" overflowX="auto" className="scrollbar-hover">
                         {profile.version_hash}
                       </Code>
                       <IconButton
@@ -1095,7 +1096,7 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
                   <HStack justify="space-between">
                     <Text fontWeight="500" color="gray.700">Ledger Reference ID:</Text>
                     <HStack>
-                      <Code fontSize="xs" maxW="200px" overflowX="auto">
+                      <Code fontSize="xs" maxW="200px" overflowX="auto" className="scrollbar-hover">
                         {auditHistory[0].ledger_hash.substring(0, 16)}...
                       </Code>
                       <IconButton
@@ -1167,6 +1168,7 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
                         fontSize="xs"
                         maxH="400px"
                         overflowY="auto"
+                        className="scrollbar-hover"
                         bg="gray.100"
                         color="gray.800"
                       >
@@ -1379,7 +1381,7 @@ export default function FullProfileView({ profileId, onBack }: FullProfileViewPr
                     <HStack justify="space-between">
                       <Text color="gray.600">Artifact Hash:</Text>
                       <HStack>
-                        <Code fontSize="xs" maxW="200px" overflowX="auto">
+                        <Code fontSize="xs" maxW="200px" overflowX="auto" className="scrollbar-hover">
                           {exportResult.artifactHash}
                         </Code>
                         <IconButton

@@ -52,3 +52,4 @@ FROM users u
 JOIN profiles p ON u.id = p.id
 WHERE u.email = 'your-email@example.com';
 
+

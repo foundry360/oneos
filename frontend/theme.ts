@@ -311,6 +311,18 @@ const theme = extendTheme({
         color: 'gray.800',
       },
     },
+    Badge: {
+      baseStyle: {
+        fontSize: 'xs',
+      },
+      sizes: {
+        sm: {
+          fontSize: '10px',
+          px: 2,
+          py: 0.5,
+        },
+      },
+    },
     Select: {
       baseStyle: {
         field: {

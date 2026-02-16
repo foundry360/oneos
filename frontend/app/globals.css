@@ -246,3 +246,35 @@ button[aria-label="Activate profile"] {
   outline: none !important;
 }
 
+/* Hide scrollbars by default, show on hover - light gray to match arrows/pointers */
+.scrollbar-hover {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-hover::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.scrollbar-hover:hover {
+  scrollbar-color: #d1d5db transparent;
+}
+

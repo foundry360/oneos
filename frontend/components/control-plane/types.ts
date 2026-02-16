@@ -31,7 +31,8 @@ export type DecisionType =
   | 'model-deployment'
   | 'policy-exception'
   | 'data-retention'
-  | 'user-permission';
+  | 'user-permission'
+  | 'llm-prompt';
 
 export type DecisionAction = 
   | 'approve'

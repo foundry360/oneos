@@ -30,9 +30,10 @@ import { useGovernanceProfiles, GovernanceProfile } from '@/hooks/useGovernanceP
 interface ProfileListProps {
   onSelectProfile?: (profile: GovernanceProfile) => void;
   selectedProfile?: GovernanceProfile | null;
+  isHighlightsPanelCollapsed?: boolean;
 }
 
-export default function ProfileList({ onSelectProfile, selectedProfile }: ProfileListProps) {
+export default function ProfileList({ onSelectProfile, selectedProfile, isHighlightsPanelCollapsed = false }: ProfileListProps) {
   const { profiles, loading, error, fetchProfiles } = useGovernanceProfiles();
   const [domainFilter, setDomainFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -123,6 +124,27 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
   };
 
   const domains = Array.from(new Set(profiles.map(p => p.domain)));
+
+  // Helper function to format relative time
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const capitalizeFirst = (str: string) => {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
 
   if (loading) {
     return (
@@ -361,7 +383,7 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
       </Box>
 
        {/* Table Section */}
-       <Box flex="1" overflowY="auto">
+       <Box flex="1" overflowY="auto" className="scrollbar-hover">
          <Table variant="simple" width="100%">
            <Thead>
              <Tr>
@@ -369,12 +391,18 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                <Th px={8} py={4} whiteSpace="nowrap">Domain</Th>
                <Th px={8} py={4} w="120px">Status</Th>
                <Th px={8} py={4} w="80px">Version</Th>
+               {isHighlightsPanelCollapsed && (
+                 <>
+                   <Th px={8} py={4} whiteSpace="nowrap">Human Review</Th>
+                   <Th px={8} py={4} whiteSpace="nowrap">Created</Th>
+                 </>
+               )}
              </Tr>
            </Thead>
            <Tbody>
              {paginatedProfiles.length === 0 ? (
                <Tr>
-                 <Td colSpan={4} px={8} textAlign="center" py={8}>
+                 <Td colSpan={isHighlightsPanelCollapsed ? 6 : 4} px={8} textAlign="center" py={8}>
                    <Text color="gray.500">No profiles found</Text>
                  </Td>
                </Tr>
@@ -431,6 +459,28 @@ export default function ProfileList({ onSelectProfile, selectedProfile }: Profil
                    <Td px={8} py={4}>
                      <Text fontSize="xs">{profile.version}</Text>
                    </Td>
+                   {isHighlightsPanelCollapsed && (
+                     <>
+                       <Td px={8} py={4} whiteSpace="nowrap">
+                         <Badge
+                           fontSize="xs"
+                           bg="blue.50"
+                           color="blue.800"
+                           fontWeight="normal"
+                           textTransform="none"
+                           px={2}
+                           py={0.5}
+                         >
+                           {capitalizeFirst(profile.human_review_requirement)}
+                         </Badge>
+                       </Td>
+                       <Td px={8} py={4} whiteSpace="nowrap">
+                         <Text fontSize="xs" color="gray.600">
+                           {formatRelativeTime(profile.created_at)}
+                         </Text>
+                       </Td>
+                     </>
+                   )}
                  </Tr>
                ))
              )}

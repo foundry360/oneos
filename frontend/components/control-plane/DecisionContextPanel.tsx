@@ -163,6 +163,7 @@ export default function DecisionContextPanel({
       display="flex"
       flexDirection="column"
       overflowY="auto"
+      className="scrollbar-hover"
       transition="width 0.2s ease"
     >
       {/* Header - Always visible */}
@@ -277,10 +278,10 @@ export default function DecisionContextPanel({
 
           <Divider borderColor="gray.200" mb={6} />
 
-          {/* AI Recommendation */}
+          {/* Risk-Based Recommendation */}
           <Box mb={6}>
             <Text fontSize="xs" fontWeight="600" color="gray.600" mb={2} textTransform="uppercase" letterSpacing="0.05em">
-              AI Recommendation
+              Risk-Based Recommendation
             </Text>
             <HStack mb={2}>
               <Text
