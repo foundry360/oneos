@@ -1,23 +1,18 @@
 const express = require('express');
 const db = require('../config/database');
 const logger = require('../utils/logger');
-const vendorApiKeyService = require('../services/vendorApiKeyService');
+const licenseKeyService = require('../services/licenseKeyService');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
-/**
- * Hash API key for storage
- */
-function hashApiKey(apiKey) {
-  return crypto.createHash('sha256').update(apiKey).digest('hex');
-}
+// Hash function removed - now using licenseKeyService.hashLicenseKey()
 
 /**
- * Validate vendor API key during installation
+ * Validate and activate license key during installation
  * POST /api/installation/validate-key
- * Called by customer during installation
+ * Validates license key against internal hash list and activates with 12-month expiration
  */
 router.post('/validate-key', async (req, res) => {
   try {
@@ -25,118 +20,127 @@ router.post('/validate-key', async (req, res) => {
 
     if (!apiKey) {
       return res.status(400).json({ 
-        error: 'API key is required',
-        message: 'Provide the vendor API key you received during onboarding'
+        error: 'License key is required',
+        message: 'Provide the license key you received'
       });
     }
 
-    logger.info('Validating vendor API key', {
+    // customerCode is now required
+    if (!customerCode || !customerCode.trim()) {
+      return res.status(400).json({
+        error: 'Customer code is required',
+        message: 'Please provide the customer ID code associated with this license key'
+      });
+    }
+
+    logger.info('Validating license key', {
       hasApiKey: !!apiKey,
-      apiKeyPrefix: apiKey?.substring(0, 10) + '...'
+      apiKeyPrefix: apiKey?.substring(0, 10) + '...',
+      customerCode: customerCode.trim()
     });
 
-    // Validate against vendor
-    const validationResult = await vendorApiKeyService.validateApiKey(apiKey);
-
-    if (!validationResult.valid) {
-      logger.warn('Vendor API key validation failed', {
-        reason: validationResult.reason
+    // Validate license key against internal hash list (database + env variable)
+    // Pass customerCode for validation
+    const validation = await licenseKeyService.validateLicenseKey(apiKey, customerCode.trim());
+    
+    if (!validation.valid) {
+      logger.warn('License key validation failed', {
+        reason: validation.reason,
+        customerCode: customerCode.trim()
       });
       return res.status(401).json({ 
-        error: 'Invalid API key',
-        reason: validationResult.reason,
-        message: 'Please check your API key and try again. Contact support if the issue persists.'
+        error: 'Invalid license key',
+        message: validation.reason || 'The license key you provided is not valid. Please check and try again.'
       });
     }
 
-    // Check if customer account already exists
-    let customerAccount;
-    const existingCustomer = await db.query(
-      'SELECT * FROM customer_accounts WHERE customer_code = $1',
-      [validationResult.customerCode]
+    // Check if license key already activated
+    const apiKeyHash = validation.hash;
+    const existingKey = await db.query(
+      `SELECT cak.*, ca.customer_code, ca.customer_name
+       FROM customer_api_keys cak
+       JOIN customer_accounts ca ON cak.customer_account_id = ca.id
+       WHERE cak.api_key_hash = $1`,
+      [apiKeyHash]
     );
 
-    if (existingCustomer.rows.length > 0) {
-      customerAccount = existingCustomer.rows[0];
+    if (existingKey.rows.length > 0) {
+      const existing = existingKey.rows[0];
+      // Validate customer_code matches
+      if (existing.customer_code !== customerCode.trim()) {
+        return res.status(403).json({
+          error: 'Customer code mismatch',
+          message: `The customer code provided (${customerCode.trim()}) does not match the one associated with this license key (${existing.customer_code}).`
+        });
+      }
+      logger.info('License key already activated', {
+        apiKeyId: existing.id,
+        activatedAt: existing.activated_at,
+        expiresAt: existing.expires_at
+      });
+      return res.json({
+        valid: true,
+        customerId: existing.customer_account_id,
+        customerCode: existing.customer_code,
+        customerName: existing.customer_name,
+        message: 'License key already activated',
+        alreadyExists: true,
+        activatedAt: existing.activated_at,
+        expiresAt: existing.expires_at
+      });
+    }
+
+    // Calculate expiration (12 months from now)
+    const activatedAt = new Date();
+    const expiresAt = new Date(activatedAt);
+    expiresAt.setMonth(expiresAt.getMonth() + 12);
+
+    // Validate customer_code matches the one stored with the license key
+    // (This is already validated in validateLicenseKey, but double-check here)
+    if (validation.customerCode && validation.customerCode !== customerCode.trim()) {
+      return res.status(403).json({
+        error: 'Customer code mismatch',
+        message: `The customer code provided (${customerCode.trim()}) does not match the one associated with this license key (${validation.customerCode}).`
+      });
+    }
+
+    // Create or get customer account using the validated customerCode
+    let customerAccount;
+    const validatedCustomerCode = customerCode.trim();
+    const existing = await db.query(
+      'SELECT * FROM customer_accounts WHERE customer_code = $1',
+      [validatedCustomerCode]
+    );
+    if (existing.rows.length > 0) {
+      customerAccount = existing.rows[0];
       logger.info('Using existing customer account', {
         customerId: customerAccount.id,
-        customerCode: validationResult.customerCode
+        customerCode: validatedCustomerCode
       });
-    } else {
-      // Create customer account if it doesn't exist
+    }
+
+    if (!customerAccount) {
       const customerResult = await db.query(
         `INSERT INTO customer_accounts (
           customer_name, customer_code, contact_email, status, metadata
         ) VALUES ($1, $2, $3, $4, $5)
         RETURNING *`,
         [
-          validationResult.customerName || customerName,
-          validationResult.customerCode,
-          validationResult.contactEmail || contactEmail,
+          customerName || 'Customer',
+          validatedCustomerCode,
+          contactEmail || '',
           'active',
           JSON.stringify({
-            vendorApiKeyId: validationResult.apiKeyId,
-            subscriptionTier: validationResult.subscriptionTier,
-            licenseType: validationResult.licenseType,
-            validatedAt: new Date().toISOString()
+            licenseActivatedAt: activatedAt.toISOString()
           })
         ]
       );
       customerAccount = customerResult.rows[0];
       logger.info('Created customer account', {
         customerId: customerAccount.id,
-        customerCode: validationResult.customerCode
+        customerCode: validatedCustomerCode
       });
     }
-
-    // Check if API key already exists in customer's database
-    const apiKeyHash = hashApiKey(apiKey);
-    const existingKey = await db.query(
-      'SELECT * FROM customer_api_keys WHERE api_key_hash = $1',
-      [apiKeyHash]
-    );
-
-    if (existingKey.rows.length > 0) {
-      logger.info('API key already exists in customer database', {
-        apiKeyId: existingKey.rows[0].id
-      });
-      return res.json({
-        valid: true,
-        customerId: customerAccount.id,
-        customerCode: validationResult.customerCode,
-        subscriptionTier: validationResult.subscriptionTier,
-        licenseType: validationResult.licenseType,
-        message: 'API key already registered',
-        alreadyExists: true
-      });
-    }
-
-    // Store validated API key in customer's database
-    const apiKeyResult = await db.query(
-      `INSERT INTO customer_api_keys (
-        customer_account_id, api_key_hash, key_name, 
-        permissions, is_active, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, key_name, created_at`,
-      [
-        customerAccount.id,
-        apiKeyHash,
-        'Vendor API Key',
-        JSON.stringify({
-          subscriptionTier: validationResult.subscriptionTier,
-          licenseType: validationResult.licenseType,
-          maxRequestsPerDay: getMaxRequestsForTier(validationResult.subscriptionTier)
-        }),
-        true,
-        JSON.stringify({
-          vendorApiKeyId: validationResult.apiKeyId,
-          validatedAt: new Date().toISOString(),
-          expiresAt: validationResult.expiresAt
-        })
-      ]
-    );
-
-    const apiKeyRecord = apiKeyResult.rows[0];
 
     // Generate installation ID if not exists
     let installationId = customerAccount.metadata?.installationId;
@@ -154,59 +158,54 @@ router.post('/validate-key', async (req, res) => {
       );
     }
 
-    // Get installation URL from environment or request
-    const installationUrl = process.env.INSTALLATION_URL || 
-                           req.headers['x-installation-url'] || 
-                           'http://localhost:3001';
+    // Store activated license key with expiration
+    const apiKeyResult = await db.query(
+      `INSERT INTO customer_api_keys (
+        customer_account_id, api_key_hash, key_name, 
+        is_active, activated_at, expires_at, metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, activated_at, expires_at`,
+      [
+        customerAccount.id,
+        apiKeyHash,
+        'License Key',
+        true,
+        activatedAt,
+        expiresAt,
+        JSON.stringify({
+          licenseType: 'timeboxed',
+          durationMonths: 12
+        })
+      ]
+    );
 
-    // Notify vendor that key was activated
-    await vendorApiKeyService.notifyActivation(apiKey, {
-      installationId,
-      installationUrl
-    });
-
-    logger.info('Vendor API key validated and stored', {
+    logger.info('License key activated', {
       customerId: customerAccount.id,
-      customerCode: validationResult.customerCode,
-      apiKeyId: apiKeyRecord.id,
+      customerCode: customerAccount.customer_code,
+      activatedAt,
+      expiresAt,
       installationId
     });
 
     res.json({
       valid: true,
       customerId: customerAccount.id,
-      customerCode: validationResult.customerCode,
-      customerName: validationResult.customerName,
-      subscriptionTier: validationResult.subscriptionTier,
-      licenseType: validationResult.licenseType,
+      customerCode: customerAccount.customer_code,
+      customerName: customerAccount.customer_name,
       installationId: installationId,
-      message: 'API key validated and registered successfully'
+      activatedAt: activatedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      message: 'License key activated successfully. Valid for 12 months.'
     });
   } catch (error) {
-    logger.error('API key validation failed', {
+    logger.error('License key activation failed', {
       error: error.message,
       stack: error.stack
     });
 
-    // Handle specific error types
-    if (error.response?.status === 401 || error.response?.status === 404) {
-      return res.status(401).json({
-        error: 'Invalid API key',
-        reason: 'API key not found or invalid',
-        message: 'Please verify your API key and try again.'
-      });
-    }
-
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-      return res.status(503).json({
-        error: 'Vendor API unavailable',
-        message: 'Unable to validate API key. Please try again later or contact support.'
-      });
-    }
-
     res.status(500).json({
-      error: 'Validation failed',
-      message: error.message || 'An error occurred during API key validation'
+      error: 'Activation failed',
+      message: error.message || 'An error occurred during license key activation'
     });
   }
 });
@@ -217,7 +216,7 @@ router.post('/validate-key', async (req, res) => {
  */
 router.get('/status', async (req, res) => {
   try {
-    // Check if API key is configured
+    // Check if license key is configured
     const apiKeyCheck = await db.query(
       `SELECT COUNT(*) as count 
        FROM customer_api_keys 
@@ -226,27 +225,48 @@ router.get('/status', async (req, res) => {
 
     const hasApiKey = parseInt(apiKeyCheck.rows[0].count) > 0;
 
-    // Get customer account info
+    // Get customer account info with license details
     const customerCheck = await db.query(
       `SELECT 
-        id, customer_name, customer_code, status,
-        metadata->>'installationId' as installation_id
-       FROM customer_accounts 
-       ORDER BY created_at DESC 
+        ca.id, ca.customer_name, ca.customer_code, ca.status,
+        ca.metadata->>'installationId' as installation_id,
+        cak.activated_at,
+        cak.expires_at,
+        cak.is_active
+       FROM customer_accounts ca
+       LEFT JOIN customer_api_keys cak ON ca.id = cak.customer_account_id AND cak.is_active = true
+       ORDER BY ca.created_at DESC 
        LIMIT 1`
     );
 
-    const customer = customerCheck.rows[0] || null;
+    const license = customerCheck.rows[0] || null;
+
+    // Calculate days remaining if license exists and has expiration
+    let daysRemaining = null;
+    let isExpired = false;
+    if (license && license.expires_at) {
+      const now = new Date();
+      const expiresAt = new Date(license.expires_at);
+      isExpired = expiresAt < now;
+      daysRemaining = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+    }
 
     res.json({
-      installed: hasApiKey && customer !== null,
+      installed: hasApiKey && license !== null,
       hasApiKey: hasApiKey,
-      customer: customer ? {
-        id: customer.id,
-        customerName: customer.customer_name,
-        customerCode: customer.customer_code,
-        status: customer.status,
-        installationId: customer.installation_id
+      customer: license ? {
+        id: license.id,
+        customerName: license.customer_name,
+        customerCode: license.customer_code,
+        status: license.status,
+        installationId: license.installation_id
+      } : null,
+      license: license && hasApiKey ? {
+        activatedAt: license.activated_at,
+        expiresAt: license.expires_at,
+        isExpired: isExpired,
+        daysRemaining: daysRemaining,
+        licenseType: 'timeboxed'
       } : null
     });
   } catch (error) {

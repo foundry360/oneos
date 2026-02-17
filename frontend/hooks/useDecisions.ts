@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Decision, DecisionStatus, RiskLevel, DecisionScope, ActionMode, DecisionAction } from '@/components/control-plane/types';
 
+// Ensure API_URL always has /api suffix
 const getApiUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  return url.endsWith('/api') ? url.slice(0, -4) : url;
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  return url.endsWith('/api') ? url : `${url}/api`;
 };
-
 const API_BASE_URL = getApiUrl();
 
 interface FetchDecisionsParams {
@@ -63,7 +63,7 @@ export function useDecisions() {
         queryParams.append('limit', params.limit.toString());
       }
 
-      const response = await axios.get(`${API_BASE_URL}/api/decisions?${queryParams.toString()}`, {
+      const response = await axios.get(`${API_BASE_URL}/decisions?${queryParams.toString()}`, {
         headers: getAuthHeaders()
       });
 
@@ -86,7 +86,7 @@ export function useDecisions() {
   const takeAction = async (decisionId: string, action: DecisionAction, justification: string) => {
     try {
       await axios.put(
-        `${API_BASE_URL}/api/decisions/${decisionId}/action`,
+        `${API_BASE_URL}/decisions/${decisionId}/action`,
         { action, justification },
         { headers: getAuthHeaders() }
       );

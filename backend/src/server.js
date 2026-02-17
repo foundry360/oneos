@@ -33,6 +33,8 @@ const db = require('./config/database');
 const routes = require('./routes');
 const { startTokenizationWorker } = require('./workers/tokenizationWorker');
 const { startInferenceWorker } = require('./workers/inferenceWorker');
+// Realtime subscription disabled - using webhook approach instead
+// const licenseRealtimeSubscription = require('./services/licenseRealtimeSubscription');
 
 // Global error handlers - MUST be at the top before any async operations
 process.on('unhandledRejection', (reason, promise) => {
@@ -103,6 +105,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Apply license check middleware BEFORE routes, but skip auth/installation endpoints
+// This ensures it doesn't interfere with authentication
+const { checkLicenseActive } = require('./middleware/licenseCheck');
+app.use('/api', (req, res, next) => {
+  // Skip license check for auth and installation endpoints entirely
+  if (req.path && (req.path.startsWith('/auth/') || req.path.startsWith('/installation/'))) {
+    return next();
+  }
+  if (req.originalUrl && (req.originalUrl.includes('/auth/') || req.originalUrl.includes('/installation/'))) {
+    return next();
+  }
+  // Apply license check for all other routes
+  return checkLicenseActive(req, res, next);
+});
+
 // Routes
 // #region agent log
 try {
@@ -157,6 +174,22 @@ app.listen(PORT, () => {
     startTokenizationWorker();
     startInferenceWorker();
   }, 5000); // Wait 5 seconds for Pub/Sub emulator to be ready
+
+  // License status updates via webhook endpoint
+  logger.info('License status updates via webhook at /api/webhooks/license-status');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully...');
+  // Realtime subscription disabled
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully...');
+  // Realtime subscription disabled
+  process.exit(0);
 });
 
 module.exports = app;

@@ -14,6 +14,9 @@ const customersRouter = require('./customers');
 const usersRouter = require('./users');
 const decisionsRouter = require('./decisions');
 const installationRouter = require('./installation');
+const webhooksRouter = require('./webhooks');
+const licenseKeysRouter = require('./licenseKeys');
+const { checkLicenseActive } = require('../middleware/licenseCheck');
 
 router.use('/auth', authRouter);
 router.use('/files', filesRouter);
@@ -28,6 +31,11 @@ router.use('/customers', customersRouter);
 router.use('/users', usersRouter);
 router.use('/decisions', decisionsRouter);
 router.use('/installation', installationRouter);
+router.use('/webhooks', webhooksRouter);
+router.use('/license-keys', licenseKeysRouter);
+
+// Apply license check to all API routes (after authentication)
+// Note: This will be applied per-route since authenticate middleware is route-specific
 
 module.exports = router;
 

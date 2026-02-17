@@ -35,11 +35,26 @@ import {
   Input,
   useToast,
   Tooltip,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from '@chakra-ui/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks, Users } from 'lucide-react';
+import { PanelLeftClose, PanelRightOpen, Settings, Fullscreen, Minimize2, LayoutDashboard, FileText, ClipboardCheck, ShieldCheck, Blocks, Users, Key, Calendar } from 'lucide-react';
+import { useInstallation } from '@/hooks/useInstallation';
+import { useLicenseStatus } from '@/hooks/useLicenseStatus';
+import { useLicenseKeys } from '@/hooks/useLicenseKeys';
+import LicenseInactiveDialog from './LicenseInactiveDialog';
 
 type SidebarMode = 'expanded' | 'collapsed' | 'hover';
 
@@ -74,6 +89,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     onOpen: onSettingsOpen, 
     onClose: onSettingsClose 
   } = useDisclosure(); // Settings drawer
+  
+  // License activation state
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [licenseKey, setLicenseKey] = useState('');
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | null>(null);
+  const [installationStatus, setInstallationStatus] = useState<any>(null);
+  const { validateLicenseKey, checkStatus } = useInstallation();
+  const { licenseStatus } = useLicenseStatus();
+  const { addLicenseKey } = useLicenseKeys();
+  
+  // License key hash for activation (from internal system)
+  const [licenseKeyHash, setLicenseKeyHash] = useState('');
+  // Customer code from internal license platform
+  const [customerCode, setCustomerCode] = useState('');
 
   // Update display name when profile loads
   useEffect(() => {
@@ -81,6 +111,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setDisplayName(profile.display_name);
     }
   }, [profile]);
+
+  // Check installation status on mount for all authenticated users
+  useEffect(() => {
+    if (user && !authLoading) {
+      checkStatus()
+        .then((status) => {
+          setInstallationStatus(status);
+          console.log('Installation status checked', { installed: status.installed, hasApiKey: status.hasApiKey });
+        })
+        .catch((error) => {
+          console.error('Failed to check installation status:', error);
+          // If check fails, assume not installed to be safe
+          setInstallationStatus({ installed: false, hasApiKey: false });
+        });
+    }
+  }, [user, authLoading, checkStatus]);
+  
+  // Also check when settings open (for admin users)
+  useEffect(() => {
+    if (isSettingsOpen && profile?.role === 'admin') {
+      checkStatus().then(setInstallationStatus).catch(console.error);
+    }
+  }, [isSettingsOpen, profile?.role, checkStatus]);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -242,6 +296,69 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
+  // Handle license activation
+  const handleActivateLicense = async () => {
+    if (!licenseKeyHash.trim()) {
+      setLicenseError('Please enter the license key hash provided by your vendor');
+      return;
+    }
+
+    if (!licenseKey.trim()) {
+      setLicenseError('Please enter the plain text license key');
+      return;
+    }
+
+    // Validate hash format
+    const hash = licenseKeyHash.trim();
+    if (hash.length !== 64 || !/^[a-f0-9]+$/i.test(hash)) {
+      setLicenseError('Hash must be 64 hexadecimal characters');
+      return;
+    }
+
+    setLicenseLoading(true);
+    setLicenseError(null);
+
+    if (!customerCode.trim()) {
+      setLicenseError('Please enter the customer ID code');
+      return;
+    }
+
+    setLicenseLoading(true);
+    setLicenseError(null);
+
+    try {
+      // First, add the license key hash to the database
+      await addLicenseKey({
+        hash: hash.toLowerCase(),
+        licenseKey: licenseKey.trim(),
+        description: undefined,
+        customerCode: customerCode.trim()
+      });
+
+      // Then validate and activate the license key
+      await validateLicenseKey(licenseKey, undefined, customerCode.trim());
+      
+      // Refresh installation status
+      const status = await checkStatus();
+      setInstallationStatus(status);
+      setIsLicenseModalOpen(false);
+      setLicenseKey('');
+      setLicenseKeyHash('');
+      setCustomerCode('');
+      toast({
+        title: 'License activated',
+        description: 'Your license key has been successfully activated.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      setLicenseError(err.message || 'Failed to activate license key');
+    } finally {
+      setLicenseLoading(false);
+    }
+  };
+
   if (authLoading || !user) {
     return (
       <Container centerContent>
@@ -251,7 +368,94 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <Flex h="100vh" direction="column" bg="#fefefe">
+    <>
+      {/* License Inactive Dialog */}
+      <LicenseInactiveDialog
+        isOpen={licenseStatus?.active === false}
+        message={licenseStatus?.message}
+      />
+      {/* Show activation prompt if no license is installed */}
+      {user && !authLoading && installationStatus !== null && installationStatus.installed === false && (
+        <Modal
+          isOpen={true}
+          onClose={() => {}} // Prevent closing
+          closeOnOverlayClick={false}
+          closeOnEsc={false}
+          isCentered
+          size="md"
+        >
+          <ModalOverlay bg="blackAlpha.600" zIndex={1300} />
+          <ModalContent zIndex={1350}>
+            <ModalHeader>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Key size={24} color="#2563EB" />
+                <Text>License Activation Required</Text>
+              </Box>
+            </ModalHeader>
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Alert status="info" borderRadius="md">
+                  <AlertIcon />
+                  <Box>
+                    <Text fontWeight="medium" fontSize="sm">License Not Activated</Text>
+                    <Text fontSize="xs" mt={1}>
+                      Please activate your license key to continue.
+                    </Text>
+                  </Box>
+                </Alert>
+                <Text fontSize="xs" color="gray.600">
+                  {profile?.role === 'admin' 
+                    ? 'You need to activate a license key before you can access the application. Click the button below to enter your license key.'
+                    : 'A license key must be activated by an administrator before you can access the application. Please contact your administrator.'}
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Box w="100%" display="flex" justifyContent="center" gap={3}>
+                {profile?.role === 'admin' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      color="gray.700"
+                      borderColor="gray.300"
+                      fontSize="xs"
+                      onClick={(e) => {
+                        handleSignOut(e);
+                      }}
+                      _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                      _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                      _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      Sign Out
+                    </Button>
+                    <Button
+                      colorScheme="blue"
+                      onClick={() => {
+                        setIsLicenseModalOpen(true);
+                      }}
+                      fontSize="sm"
+                    >
+                      Activate License Key
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    colorScheme="blue"
+                    onClick={(e) => {
+                      handleSignOut(e);
+                    }}
+                    fontSize="sm"
+                  >
+                    Sign Out
+                  </Button>
+                )}
+              </Box>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+      <Flex h="100vh" direction="column" bg="#fefefe">
       {/* Header */}
       <Box
         as="header"
@@ -637,36 +841,93 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
               <Divider />
 
-              {/* Preferences Section */}
-              <Box bg="white" p={4} borderRadius="md" boxShadow="sm">
-                <Heading size="sm" mb={4} color="gray.700">
-                  Preferences
-                </Heading>
-                <VStack spacing={4} align="stretch">
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel htmlFor="notifications" mb={0} fontSize="sm">
-                      Email Notifications
-                    </FormLabel>
-                    <Switch id="notifications" colorScheme="blue" />
-                  </FormControl>
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel htmlFor="dark-mode" mb={0} fontSize="sm">
-                      Dark Mode
-                    </FormLabel>
-                    <Switch id="dark-mode" colorScheme="blue" />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel htmlFor="language" fontSize="sm">
-                      Language
-                    </FormLabel>
-                    <Select id="language" size="sm">
-                      <option value="en">English</option>
-                      <option value="es">Spanish</option>
-                      <option value="fr">French</option>
-                    </Select>
-                  </FormControl>
-                </VStack>
-              </Box>
+              {/* License Section - Only for Admin */}
+              {profile?.role === 'admin' && (
+                <Box bg="white" p={4} borderRadius="md" boxShadow="sm">
+                  <Heading size="sm" mb={4} color="gray.700">
+                    License
+                  </Heading>
+                  <VStack spacing={4} align="stretch">
+                    {installationStatus?.installed && installationStatus?.license ? (
+                      // Show expiration date if license is activated
+                      <>
+                        <Box>
+                          <HStack spacing={2} mb={2}>
+                            <Calendar size={16} color="gray" />
+                            <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                              License Status
+                            </Text>
+                          </HStack>
+                          {installationStatus.license.expiresAt ? (
+                            <VStack align="flex-start" spacing={1}>
+                              <HStack spacing={2}>
+                                <Text fontSize="sm" color={installationStatus.license.isExpired ? 'red.600' : 'gray.800'} fontWeight="medium">
+                                  {installationStatus.license.isExpired ? 'Expired' : 'Active'}
+                                </Text>
+                                {installationStatus.license.daysRemaining !== null && installationStatus.license.daysRemaining !== undefined && (
+                                  <Text fontSize="xs" color={installationStatus.license.daysRemaining < 30 ? 'orange.600' : 'gray.500'}>
+                                    ({installationStatus.license.daysRemaining} days remaining)
+                                  </Text>
+                                )}
+                              </HStack>
+                              <Text fontSize="sm" color="gray.800">
+                                Expires: {new Date(installationStatus.license.expiresAt).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </Text>
+                              {installationStatus.license.activatedAt && (
+                                <Text fontSize="xs" color="gray.500">
+                                  Activated: {new Date(installationStatus.license.activatedAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </Text>
+                              )}
+                              {installationStatus.license.licenseType && (
+                                <Text fontSize="xs" color="gray.500">
+                                  Type: {installationStatus.license.licenseType}
+                                </Text>
+                              )}
+                            </VStack>
+                          ) : (
+                            <Text fontSize="sm" color="green.600" fontWeight="medium">
+                              Perpetual License (No Expiration)
+                            </Text>
+                          )}
+                        </Box>
+                        {installationStatus.customer && (
+                          <Box>
+                            <Text fontSize="xs" color="gray.500" mb={1}>
+                              Customer
+                            </Text>
+                            <Text fontSize="sm" color="gray.800">
+                              {installationStatus.customer.customerName} ({installationStatus.customer.customerCode})
+                            </Text>
+                          </Box>
+                        )}
+                      </>
+                    ) : (
+                      // Show activate button if not activated
+                      <Button
+                        leftIcon={<Key size={16} />}
+                        size="sm"
+                        colorScheme="blue"
+                        onClick={() => setIsLicenseModalOpen(true)}
+                        _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                        _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                        _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        Activate License Key
+                      </Button>
+                    )}
+                  </VStack>
+                </Box>
+              )}
+
 
               <Divider />
 
@@ -729,7 +990,135 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* License Activation Modal */}
+      <Modal
+        isOpen={isLicenseModalOpen}
+        onClose={() => {
+          setIsLicenseModalOpen(false);
+          setLicenseKey('');
+          setLicenseKeyHash('');
+          setCustomerCode('');
+          setLicenseError(null);
+        }}
+        size="md"
+        isCentered
+      >
+        <ModalOverlay bg="blackAlpha.700" zIndex={1400} />
+        <ModalContent zIndex={1500}>
+          <ModalHeader>Activate License Key</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              {licenseError && (
+                <Alert status="error">
+                  <AlertIcon />
+                  <Box>
+                    <AlertTitle>Activation Failed</AlertTitle>
+                    <AlertDescription>{licenseError}</AlertDescription>
+                  </Box>
+                </Alert>
+              )}
+
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                <AlertDescription fontSize="sm">
+                  Enter the license key hash, plain text license key, and customer ID code. The system will validate that they match.
+                </AlertDescription>
+              </Alert>
+
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" color="gray.700">
+                  License Key Hash
+                </FormLabel>
+                <Input
+                  type="text"
+                  value={licenseKeyHash}
+                  onChange={(e) => setLicenseKeyHash(e.target.value)}
+                  placeholder="************************************************"
+                  size="sm"
+                  fontFamily="mono"
+                  autoFocus
+                  _placeholder={{ fontSize: 'xs' }}
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  64-character hexadecimal SHA-256 hash provided by your vendor
+                </Text>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" color="gray.700">
+                  License Key (Plain Text)
+                </FormLabel>
+                <Input
+                  type="text"
+                  value={licenseKey}
+                  onChange={(e) => setLicenseKey(e.target.value)}
+                  placeholder="***-***-***"
+                  size="sm"
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Plain text license key that will be validated and activated
+                </Text>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" color="gray.700">
+                  Customer ID Code
+                </FormLabel>
+                <Input
+                  type="text"
+                  value={customerCode}
+                  onChange={(e) => setCustomerCode(e.target.value)}
+                  placeholder="***-****-***"
+                  size="sm"
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Customer ID code provided by your vendor
+                </Text>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              mr={3}
+              color="gray.700"
+              borderColor="gray.300"
+              fontSize="xs"
+              onClick={() => {
+                setIsLicenseModalOpen(false);
+                setLicenseKey('');
+                setLicenseKeyHash('');
+                setCustomerCode('');
+                setLicenseError(null);
+              }}
+              _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleActivateLicense}
+              isLoading={licenseLoading}
+              loadingText="Activating..."
+              fontSize="xs"
+              _focus={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              _focusVisible={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              _active={{ outline: 'none', boxShadow: 'none', ring: 'none', ringOffset: 'none' }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              Activate
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Flex>
+    </>
   );
 }
 

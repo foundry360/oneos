@@ -56,8 +56,10 @@ export function useAuth() {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    const loginUrl = `${API_URL}/auth/login`;
+    
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,8 +68,15 @@ export function useAuth() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to sign in');
+        let errorMessage = 'Failed to sign in';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -80,6 +89,12 @@ export function useAuth() {
       
       return { user: data.user, session: { access_token: data.token } };
     } catch (error: any) {
+      // Log the full URL for debugging
+      console.error('Login error:', {
+        url: loginUrl,
+        error: error.message,
+        type: error.name
+      });
       throw new Error(error.message || 'Failed to sign in');
     }
   };
