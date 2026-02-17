@@ -13,7 +13,7 @@ async function auditLog(req, res, next) {
       const resourceId = req.params.id || null;
       
       await db.query(
-        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent)
+        `INSERT INTO audit_logs (actor_id, action, resource_type, resource_id, details, ip_address, user_agent)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           userId,

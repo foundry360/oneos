@@ -61,10 +61,12 @@ CREATE INDEX IF NOT EXISTS idx_decision_comments_created_by ON decision_comments
 CREATE INDEX IF NOT EXISTS idx_decision_comments_created_at ON decision_comments(created_at);
 
 -- Trigger to update updated_at timestamp for decisions
+DROP TRIGGER IF EXISTS update_decisions_updated_at ON decisions;
 CREATE TRIGGER update_decisions_updated_at BEFORE UPDATE ON decisions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger to update updated_at timestamp for decision_comments
+DROP TRIGGER IF EXISTS update_decision_comments_updated_at ON decision_comments;
 CREATE TRIGGER update_decision_comments_updated_at BEFORE UPDATE ON decision_comments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -82,9 +84,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- Add constraint to validate AI recommendation structure
-ALTER TABLE decisions ADD CONSTRAINT check_ai_recommendation 
-    CHECK (validate_ai_recommendation(ai_recommendation));
+-- Add constraint to validate AI recommendation structure (if it doesn't exist)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_ai_recommendation' 
+        AND conrelid = 'decisions'::regclass
+    ) THEN
+        ALTER TABLE decisions ADD CONSTRAINT check_ai_recommendation 
+            CHECK (validate_ai_recommendation(ai_recommendation));
+    END IF;
+END $$;
 
 -- Comments for documentation
 COMMENT ON TABLE decisions IS 'Main table for AI governance decisions requiring human review';

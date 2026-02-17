@@ -45,8 +45,111 @@ export default function LoginForm() {
   };
 
   return (
-    <Container maxW="md" centerContent>
-      <Box w="100%" p={8} mt={8}>
+    <Box
+      minH="100vh"
+      position="relative"
+      overflow="hidden"
+      bg="blue.50"
+      bgGradient="linear(to-br, blue.50, blue.100, blue.50)"
+    >
+      {/* Wavy background SVG */}
+      <Box
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        zIndex={0}
+      >
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 1200 800"
+          preserveAspectRatio="none"
+          style={{ display: 'block' }}
+        >
+          <path
+            d="M0,200 Q300,100 600,200 T1200,200 L1200,800 L0,800 Z"
+            fill="#93C5FD"
+            opacity="0.6"
+          />
+          <path
+            d="M0,400 Q400,300 800,400 T1200,400 L1200,800 L0,800 Z"
+            fill="#60A5FA"
+            opacity="0.5"
+          />
+          <path
+            d="M0,600 Q200,500 400,600 T800,600 T1200,600 L1200,800 L0,800 Z"
+            fill="#93C5FD"
+            opacity="0.4"
+          />
+        </svg>
+      </Box>
+
+      {/* Animated floating shapes */}
+      <Box
+        position="absolute"
+        top="10%"
+        left="10%"
+        w="200px"
+        h="200px"
+        borderRadius="full"
+        bg="blue.200"
+        opacity={0.15}
+        filter="blur(40px)"
+        zIndex={0}
+        className="float-animation"
+        style={{ animationDuration: '6s' }}
+      />
+      <Box
+        position="absolute"
+        top="60%"
+        right="15%"
+        w="150px"
+        h="150px"
+        borderRadius="full"
+        bg="blue.300"
+        opacity={0.15}
+        filter="blur(40px)"
+        zIndex={0}
+        className="float-animation"
+        style={{ animationDuration: '8s', animationDelay: '2s' }}
+      />
+      <Box
+        position="absolute"
+        bottom="20%"
+        left="20%"
+        w="180px"
+        h="180px"
+        borderRadius="full"
+        bg="blue.300"
+        opacity={0.15}
+        filter="blur(40px)"
+        zIndex={0}
+        className="float-animation"
+        style={{ animationDuration: '7s', animationDelay: '4s' }}
+      />
+
+      <Container 
+        maxW="md" 
+        centerContent 
+        minH="100vh" 
+        display="flex" 
+        alignItems="center" 
+        justifyContent="center"
+        position="relative"
+        zIndex={1}
+      >
+        <Box 
+          w="100%" 
+          p={8}
+          bg="white"
+          borderRadius="md"
+          border="1px solid"
+          borderColor="gray.200"
+          boxShadow="xl"
+          backdropFilter="blur(10px)"
+        >
         <Box mb={6} display="flex" justifyContent="center" alignItems="center">
           <Image
             src="/images/logo.png"
@@ -99,8 +202,9 @@ export default function LoginForm() {
             </Button>
           </VStack>
         </Box>
-      </Box>
-    </Container>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 

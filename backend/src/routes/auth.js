@@ -36,7 +36,7 @@ router.get('/test', (req, res) => {
 // Login endpoint
 router.post('/login', async (req, res) => {
   // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:37',message:'Login request received',data:{hasBody:!!req.body,hasEmail:!!req.body?.email},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:37',message:'Login route handler entered',data:{hasBody:!!req.body,hasEmail:!!req.body?.email,path:req.path,originalUrl:req.originalUrl},timestamp:Date.now(),runId:'run1',hypothesisId:'F'})}).catch(()=>{});
   // #endregion
   // Add timeout to prevent hanging
   const timeout = setTimeout(() => {
@@ -169,6 +169,9 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate JWT token
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:172',message:'Generating JWT token',data:{userId:user.user_id,email:user.user_email},timestamp:Date.now(),runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
     let token;
     try {
       token = jwt.sign(
@@ -189,14 +192,26 @@ router.post('/login', async (req, res) => {
     logger.info('User logged in successfully', { email, userId: user.user_id });
 
     clearTimeout(timeout);
-    res.json({
-      user: {
-        id: user.user_id,
-        email: user.user_email,
-        role: user.role
-      },
-      token
-    });
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:194',message:'Sending successful login response',data:{hasToken:!!token,userId:user.user_id,headersSent:res.headersSent},timestamp:Date.now(),runId:'run1',hypothesisId:'I'})}).catch(()=>{});
+    // #endregion
+    if (!res.headersSent) {
+      res.json({
+        user: {
+          id: user.user_id,
+          email: user.user_email,
+          role: user.role
+        },
+        token
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:203',message:'Login response sent successfully',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'I'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3267bb07-3793-49f0-9fa2-fbd9fc3fc076',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.js:210',message:'Cannot send login response - headers already sent',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'I'})}).catch(()=>{});
+      // #endregion
+    }
   } catch (error) {
     clearTimeout(timeout);
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
